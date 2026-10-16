@@ -221,6 +221,11 @@ input, select, textarea { font: inherit; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-sm { display: inline-flex; align-items: center; background: var(--surface2); color: var(--dim); border-radius: var(--r-pill); padding: 2px 9px; font-size: var(--fs-label); font-weight: 700; }
 
+.cat-extra { margin-block-start: 8px; }
+.cat-extra .tag { font-size: var(--fs-meta); min-block-size: 32px; padding: 2px 4px 2px 10px; }
+.cat-extra .tag button { inline-size: 26px; block-size: 26px; }
+.tag.ghost.sm { min-block-size: 34px; padding: 0 12px; font-size: var(--fs-meta); }
+
 /* search */
 .search-bar { position: relative; }
 .search-bar .tz-input { padding-inline-start: 44px; min-block-size: 52px; font-size: var(--fs-lead); }

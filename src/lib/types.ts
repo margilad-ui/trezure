@@ -55,6 +55,7 @@ export interface Item {
   attrs: Record<string, string | number | null>; notes: string | null
   price: number | null; currency: string | null
   cover_image_id: string | null; stage: Stage; ai: AiResult | null
+  category_ids: string[]
   created_by: string | null; created_at: string; updated_at: string; archived_at: string | null
 }
 
@@ -70,4 +71,5 @@ export interface ImageJob {
   request: unknown; result: unknown; error: string | null; created_at: string; updated_at: string
 }
 
-export interface ItemWithImages extends Item { item_images: ItemImage[]; image_jobs?: ImageJob[] }
+export interface ItemCategory { category_id: string }
+export interface ItemWithImages extends Item { item_images: ItemImage[]; image_jobs?: ImageJob[]; item_categories?: ItemCategory[] }

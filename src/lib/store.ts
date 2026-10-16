@@ -93,6 +93,22 @@ export async function createWorkspaceWithSeed(name: string) {
   await loadWorkspace()
 }
 
+/** Creates a category and refreshes the reference lists. Returns its id. */
+export async function createCategory(input: {
+  workspace_id: string; name_he: string; name_en?: string | null; parent_id?: string | null
+  default_unit?: string; default_kind?: 'equipment' | 'consumable'
+}): Promise<string> {
+  const sort = state.categories.length + 1
+  const { data, error } = await supabase.from('categories').insert({
+    workspace_id: input.workspace_id, name_he: input.name_he, name_en: input.name_en ?? null,
+    parent_id: input.parent_id ?? null, default_unit: input.default_unit ?? 'unit',
+    default_kind: input.default_kind ?? 'equipment', fields: [], sort,
+  }).select('id').single()
+  if (error) throw error
+  await refreshRefs()
+  return data.id as string
+}
+
 export async function signOut() {
   await supabase.auth.signOut()
   try { localStorage.removeItem(LS_WS) } catch { /* ignore */ }

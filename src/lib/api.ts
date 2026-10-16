@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type { Item, ItemWithImages, Kind, StockState } from './types'
 
-const ITEM_COLS = '*, item_images(*), image_jobs(id,status,error,type,updated_at)'
+const ITEM_COLS = '*, item_images(*), item_categories(category_id), image_jobs(id,status,error,type,updated_at)'
 
 export async function fetchInbox(ws: string): Promise<ItemWithImages[]> {
   const { data, error } = await supabase.from('items').select(ITEM_COLS)
@@ -40,9 +40,9 @@ export interface SearchFilters {
 }
 
 export async function searchItems(ws: string, f: SearchFilters): Promise<ItemWithImages[]> {
-  let qb = supabase.from('items').select('*, item_images(*)').eq('workspace_id', ws).is('archived_at', null)
+  let qb = supabase.from('items').select('*, item_images(*), item_categories(category_id)').eq('workspace_id', ws).is('archived_at', null)
   if (f.inbox) qb = qb.eq('stage', 'inbox'); else qb = qb.eq('stage', 'ready')
-  if (f.category_id) qb = qb.eq('category_id', f.category_id)
+  if (f.category_id) qb = qb.contains('category_ids', [f.category_id])
   if (f.location_id) qb = qb.eq('location_id', f.location_id)
   if (f.kind) qb = qb.eq('kind', f.kind)
   if (f.stock) qb = qb.eq('stock_state', f.stock)
@@ -66,6 +66,16 @@ export async function fetchItem(id: string): Promise<ItemWithImages | null> {
   const { data, error } = await supabase.from('items').select(ITEM_COLS).eq('id', id).maybeSingle()
   if (error) throw error
   return data as unknown as ItemWithImages | null
+}
+
+/** Replaces the item's additional categories. The primary one stays on items.category_id. */
+export async function setItemCategories(itemId: string, ws: string, ids: string[]) {
+  const { error: delErr } = await supabase.from('item_categories').delete().eq('item_id', itemId)
+  if (delErr) throw delErr
+  const clean = Array.from(new Set(ids)).filter(Boolean)
+  if (!clean.length) return
+  const { error } = await supabase.from('item_categories').insert(clean.map(category_id => ({ item_id: itemId, category_id, workspace_id: ws })))
+  if (error) throw error
 }
 
 export async function updateItem(id: string, patch: Partial<Item>) {

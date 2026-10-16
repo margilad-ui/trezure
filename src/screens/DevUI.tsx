@@ -4,7 +4,7 @@
  * before anything ships. Not linked from the app.
  */
 import { useState, type CSSProperties } from 'react'
-import { Check, SkipForward, Trash2, RefreshCw, Loader2, AlertTriangle, Search as SearchIcon, Camera, X, ImagePlus } from 'lucide-react'
+import { Check, SkipForward, Trash2, RefreshCw, Loader2, AlertTriangle, Search as SearchIcon, Camera, X, ImagePlus, Plus } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { Logo } from '../components/Logo'
 import { OkiMark, Oki } from '../components/Oki'
@@ -43,8 +43,12 @@ function Card({ s, i }: { s: typeof SAMPLES[0]; i: number }) {
       <div className="fields">
         <div className="field wide-2"><label>{t('field.name')}</label><input className="tz-input" defaultValue={s.name} /></div>
         <div className={`field ${s.st === 'done' ? '' : 'low'}`}><label>{t('field.brand')}</label><input className="tz-input" defaultValue={s.brand} /></div>
-        <div className="field"><label>{t('field.category')}</label>
-          <select className="tz-input" defaultValue=""><option value="">{s.cat || t('field.choose')}</option></select>
+        <div className="field cat-field"><label>{t('field.category')}</label>
+          <button type="button" className="tz-input" style={{ textAlign: 'start' }}>{s.cat || <span className="dim">{t('field.choose')}</span>}</button>
+          <div className="tag-row cat-extra">
+            {i === 0 && <span className="tag"><span>סובלימציה / מוצרים ריקים</span><button type="button" aria-label="x"><X size={14} /></button></span>}
+            <button type="button" className="tag ghost sm"><Plus size={13} /><span>{i === 0 ? t('cat.add') : t('cat.also.add')}</span></button>
+          </div>
         </div>
         <div className="field"><label>{t('field.location')}</label>
           <button type="button" className="tz-input" style={{ textAlign: 'start', display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -1,34 +1,42 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, Archive, Loader2 } from 'lucide-react'
 import { useT, type Key } from '../i18n'
-import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { fetchItem, updateItem, archiveItem, adjustQty, workspaceTags } from '../lib/api'
-import type { ItemWithImages, Kind } from '../lib/types'
+import { useStore, catById, locLabel, locColor } from '../lib/store'
+import { fetchItem, updateItem, archiveItem, adjustQty, workspaceTags, setItemCategories } from '../lib/api'
+import type { ItemWithImages, Kind, FieldDef } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
 import { navigate } from '../lib/router'
 import { LocationPicker } from '../components/LocationPicker'
 import { TagInput } from '../components/TagInput'
+import { CategoryField } from '../components/CategoryField'
 import { toast } from '../components/Toast'
 import { UNITS } from '../lib/seed'
 
 export function ItemScreen({ id }: { id: string }) {
   const { t, lang } = useT()
-  const { categories } = useStore()
+  useStore()
   const [it, setIt] = useState<ItemWithImages | null | undefined>(undefined)
   const [cur, setCur] = useState(0)
   const [locPick, setLocPick] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [allTags, setAllTags] = useState<string[]>([])
+  const [extra, setExtra] = useState<string[]>([])
 
-  useEffect(() => { void fetchItem(id).then(setIt) }, [id])
+  useEffect(() => { void fetchItem(id).then(v => { setIt(v); setExtra((v?.item_categories ?? []).map(x => x.category_id).filter(c => c !== v?.category_id)) }) }, [id])
   useEffect(() => { if (it) void workspaceTags(it.workspace_id).then(setAllTags).catch(() => {}) }, [it?.workspace_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (it === undefined) return <div className="empty"><Loader2 className="spin" size={28} /></div>
   if (!it) return <div className="empty"><p>{t('common.error')}</p></div>
 
   const imgs = (it.item_images ?? []).slice().sort((a, b) => a.sort - b.sort)
-  const cat = catById(it.category_id)
+  const allFields = (() => {
+    const seen = new Set<string>(); const out: FieldDef[] = []
+    for (const cid of [it.category_id ?? '', ...extra]) {
+      for (const f of catById(cid)?.fields ?? []) if (!seen.has(f.key)) { seen.add(f.key); out.push(f) }
+    }
+    return out
+  })()
   const patch = (p: Partial<ItemWithImages>) => { setIt(x => x ? { ...x, ...p } : x); setDirty(true) }
 
   async function save() {
@@ -36,6 +44,7 @@ export function ItemScreen({ id }: { id: string }) {
     setSaving(true)
     try {
       await updateItem(it.id, { name: it.name, brand: it.brand, category_id: it.category_id, location_id: it.location_id, unit: it.unit, kind: it.kind, attrs: it.attrs, tags: it.tags, notes: it.notes, min_qty: it.min_qty, stage: 'ready' })
+      await setItemCategories(it.id, it.workspace_id, extra)
       setDirty(false); toast(t('item.saved'), 'ok')
     } catch (e) { toast(String((e as Error).message), 'err') } finally { setSaving(false) }
   }
@@ -66,12 +75,12 @@ export function ItemScreen({ id }: { id: string }) {
           <div className="field"><label>{t('field.name')}</label><input className="tz-input" value={it.name ?? ''} onChange={e => patch({ name: e.target.value })} style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }} /></div>
           <div className="fields" style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             <div className="field"><label>{t('field.brand')}</label><input className="tz-input" value={it.brand ?? ''} onChange={e => patch({ brand: e.target.value })} /></div>
-            <div className="field"><label>{t('field.category')}</label>
-              <select className="tz-input" value={it.category_id ?? ''} onChange={e => patch({ category_id: e.target.value || null })}>
-                <option value="">{t('field.none')}</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.parent_id ? '· ' : ''}{catName(c)}</option>)}
-              </select>
-            </div>
+            <CategoryField
+              primary={it.category_id ?? ''}
+              extra={extra}
+              onPrimary={cid => patch({ category_id: cid || null })}
+              onExtra={ids => { setExtra(ids); setDirty(true) }}
+            />
             <div className="field"><label>{t('field.location')}</label>
               <button type="button" className="tz-input" style={{ textAlign: 'start', display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setLocPick(true)}>
                 <i style={{ inlineSize: 10, blockSize: 10, borderRadius: '50%', background: locColor(it.location_id), flex: 'none' }} />
@@ -81,7 +90,7 @@ export function ItemScreen({ id }: { id: string }) {
             <div className="field"><label>{t('field.kind')}</label>
               <div className="seg">{(['equipment', 'consumable', 'kit'] as Kind[]).map(k => <button key={k} type="button" aria-pressed={it.kind === k} onClick={() => patch({ kind: k })}>{t(`kind.${k}` as Key)}</button>)}</div>
             </div>
-            {(cat?.fields ?? []).map(f => (
+            {allFields.map(f => (
               <div key={f.key} className="field"><label>{lang === 'he' ? f.label_he : f.label_en}{f.unit ? ` (${f.unit})` : ''}</label>
                 {f.type === 'select' ? (
                   <select className="tz-input" value={String(it.attrs?.[f.key] ?? '')} onChange={e => patch({ attrs: { ...it.attrs, [f.key]: e.target.value || null } })}>

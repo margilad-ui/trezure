@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { Check, SkipForward, Trash2, RefreshCw, Loader2, AlertTriangle } from 'lucide-react'
 import { useT, dayLabel, timeLabel, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { fetchInbox, approveItem, archiveItem, updateItem, requestAnalysis, workspaceTags } from '../lib/api'
+import { fetchInbox, approveItem, archiveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories } from '../lib/api'
 import type { ItemWithImages, Category, Kind, FieldDef } from '../lib/types'
 import { coverOf } from '../components/Pic'
 import { OkiMark, Oki } from '../components/Oki'
 import { LocationPicker } from '../components/LocationPicker'
 import { TagInput } from '../components/TagInput'
+import { CategoryField } from '../components/CategoryField'
 import { toast } from '../components/Toast'
 import { play } from '../lib/sound'
 import { UNITS } from '../lib/seed'
@@ -18,6 +19,7 @@ type Draft = {
   name: string; brand: string; category_id: string; location_id: string
   qty: number; unit: string; kind: Kind; attrs: Record<string, string | number | null>
   tags: string[]
+  extra_category_ids: string[]
 }
 
 function draftOf(it: ItemWithImages, cats: Category[]): Draft {
@@ -35,6 +37,7 @@ function draftOf(it: ItemWithImages, cats: Category[]): Draft {
     kind: (it.kind !== 'equipment' ? it.kind : cat?.default_kind ?? 'equipment') as Kind,
     attrs: { ...(ai.attrs ?? {}), ...(it.attrs ?? {}) },
     tags: it.tags?.length ? it.tags : [],
+    extra_category_ids: (it.item_categories ?? []).map(x => x.category_id).filter(id => id !== catId),
   }
 }
 
@@ -132,6 +135,7 @@ export function Inbox() {
         category_id: d.category_id || null, location_id: d.location_id || null,
         qty: d.qty, unit: d.unit, kind: d.kind, attrs: d.attrs, tags: d.tags,
       })
+      await setItemCategories(it.id, it.workspace_id, d.extra_category_ids)
       play('sorted')
       setDoneCount(c => c + 1)
       if (remaining.length === 0) { play('complete'); toast(t('inbox.alldone', { n: doneCount + 1 }), 'ok', 3500) }
@@ -251,8 +255,13 @@ export function Inbox() {
             <div className="stack">
               {list.map(it => {
                 const d = drafts[it.id] ?? draftOf(it, categories)
-                const cat = catById(d.category_id)
-                const fields: FieldDef[] = cat?.fields ?? []
+                const fields: FieldDef[] = (() => {
+                  const seen = new Set<string>(); const out: FieldDef[] = []
+                  for (const id of [d.category_id, ...d.extra_category_ids]) {
+                    for (const f of catById(id)?.fields ?? []) if (!seen.has(f.key)) { seen.add(f.key); out.push(f) }
+                  }
+                  return out
+                })()
                 const st = jobState(it)
                 const ai = it.ai ?? {}
                 const conf = ai.confidence ?? 0
@@ -288,12 +297,12 @@ export function Inbox() {
                     <div className="fields">
                       <div className={`field wide-2 ${low('name') ? 'low' : ''}`}><label>{t('field.name')}</label><input data-first className="tz-input" value={d.name} onChange={e => setDraft(it.id, { name: e.target.value })} /></div>
                       <div className={`field ${low('brand') ? 'low' : ''}`}><label>{t('field.brand')}</label><input className="tz-input" value={d.brand} onChange={e => setDraft(it.id, { brand: e.target.value })} /></div>
-                      <div className={`field ${low('category_id') ? 'low' : ''}`}><label>{t('field.category')}</label>
-                        <select data-cat className="tz-input" value={d.category_id} onChange={e => { const c = catById(e.target.value); setDraft(it.id, { category_id: e.target.value, ...(c ? { unit: c.default_unit, kind: c.default_kind } : {}) }) }}>
-                          <option value="">{t('field.choose')}</option>
-                          {categories.map(c => <option key={c.id} value={c.id}>{c.parent_id ? '· ' : ''}{catName(c)}</option>)}
-                        </select>
-                      </div>
+                      <CategoryField
+                        primary={d.category_id}
+                        extra={d.extra_category_ids}
+                        onPrimary={id => { const c = catById(id); setDraft(it.id, { category_id: id, ...(c ? { unit: c.default_unit, kind: c.default_kind } : {}) }) }}
+                        onExtra={ids => setDraft(it.id, { extra_category_ids: ids })}
+                      />
                       <div className="field"><label>{t('field.location')}</label>
                         <button type="button" className="tz-input" style={{ textAlign: 'start', display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setLocPick({ ids: [it.id] })}>
                           <i style={{ inlineSize: 10, blockSize: 10, borderRadius: '50%', background: locColor(d.location_id), flex: 'none' }} />
