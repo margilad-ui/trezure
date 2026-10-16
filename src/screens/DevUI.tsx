@@ -9,6 +9,8 @@ import { useT, type Key } from '../i18n'
 import { Logo } from '../components/Logo'
 import { OkiMark, Oki } from '../components/Oki'
 import { OkiHello } from '../components/OkiHello'
+import { Pic } from '../components/Pic'
+import { useStore } from '../lib/store'
 import { UNITS } from '../lib/seed'
 import { TagInput } from '../components/TagInput'
 import type { Kind } from '../lib/types'
@@ -18,6 +20,19 @@ const SAMPLES = [
   { name: '', brand: '', cat: '', loc: 'מחסן · מדף עליון', color: '#9A6B3F', qty: 1, unit: 'roll', kind: 'consumable' as Kind, oki: 'צלם את הצד עם הכיתוב, לא קראתי.', st: 'reshoot' },
   { name: 'לוח קנבס 40 על 50', brand: '', cat: 'ציוד יצירה', loc: 'בית · סטודיו', color: '#3FA34D', qty: 12, unit: 'unit', kind: 'consumable' as Kind, oki: 'OKI מסתכל', st: 'pending' },
 ]
+
+const DEMO_CUT = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160"><path d="M20 50 L100 20 L180 50 L180 130 L100 150 L20 130Z" fill="#C9A571"/><path d="M20 50 L100 80 L180 50 L100 20Z" fill="#DDBB8A"/><path d="M100 80 L100 150 L180 130 L180 50Z" fill="#B08F5E"/><rect x="38" y="78" width="30" height="20" rx="3" fill="#fff" transform="skewY(18)"/></svg>`)
+function PicDemo() {
+  const { categories } = useStore()
+  const cats = categories.length ? categories.filter(c => !c.parent_id).slice(0, 5).map(c => c.id) : ['cricut-demo', 'sublimation-demo', 'board-games-demo', 'office-demo', 'gifts-demo']
+  const img = { id: 'x', workspace_id: 'w', item_id: 'i', path_original: 'demo', path_clean: 'demo', path_thumb: null, source: 'camera', angle: 'front', sort: 0, width: 1, height: 1, created_at: '' }
+  return (
+    <div id="pic-demo" style={{ display: 'grid', gap: 14 }}>
+      <div className="row" style={{ gap: 12 }}>{cats.map(c => <Pic key={c} size={140} image={img} srcClean={DEMO_CUT} category={c} />)}</div>
+      <div className="row" style={{ gap: 12 }}><Pic size={88} image={img} srcClean={DEMO_CUT} category={cats[0]} /><Pic size={64} image={img} srcClean={DEMO_CUT} category={cats[1]} /><Pic size={48} image={img} srcClean={DEMO_CUT} category={cats[2]} style={{ borderRadius: 8 }} /><Pic size={88} image={{ ...img, path_clean: null }} src={DEMO_CUT} category={cats[3]} /></div>
+    </div>
+  )
+}
 
 function Card({ s, i }: { s: typeof SAMPLES[0]; i: number }) {
   const { t } = useT()
@@ -173,6 +188,9 @@ export function DevUI() {
           <button type="button" role="switch" aria-checked="true" className="switch" aria-label="מתג" />
         </div>
       </div>
+
+      <H>תמונה נקייה על גוון קטגוריה</H>
+      <PicDemo />
 
       <H>OKI: קבלת פנים</H>
       <div id="oki-hello"><OkiHello force /></div>

@@ -4,7 +4,7 @@ import { useT, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
 import { searchItems, adjustQty, inboxCount, workspaceTags, type SearchFilters } from '../lib/api'
 import type { ItemWithImages, Kind, StockState } from '../lib/types'
-import { coverOf } from '../components/Pic'
+import { coverImage, Pic } from '../components/Pic'
 import { Oki } from '../components/Oki'
 import { OkiHello } from '../components/OkiHello'
 import { href, onLink, navigate } from '../lib/router'
@@ -125,7 +125,7 @@ export function Search() {
               <div className="grid-view">
                 {sorted.map(it => (
                   <button key={it.id} type="button" className="grid-card" onClick={() => navigate(`/item/${it.id}`)}>
-                    {coverOf(it.item_images, it.cover_image_id) ? <img src={coverOf(it.item_images, it.cover_image_id)} alt="" loading="lazy" /> : <div style={{ aspectRatio: '1', background: 'var(--surface2)' }} />}
+                    <Pic className="gpic" image={coverImage(it.item_images, it.cover_image_id)} category={it.category_id} />
                     <div className="b">
                       <span className="name">{it.name || <span className="dim">{t('stage.inbox')}</span>}</span>
                       <span className="row" style={{ justifyContent: 'space-between' }}><span className="mono" style={{ fontSize: 'var(--fs-sm)' }}>{it.qty}</span>{stockBadge(it)}</span>
@@ -138,7 +138,7 @@ export function Search() {
               <div className="results">
                 {sorted.map(it => (
                   <div key={it.id} className="res-row" role="button" tabIndex={0} onClick={() => navigate(`/item/${it.id}`)} onKeyDown={e => { if (e.key === 'Enter') navigate(`/item/${it.id}`) }}>
-                    {coverOf(it.item_images, it.cover_image_id) ? <img src={coverOf(it.item_images, it.cover_image_id)} alt="" loading="lazy" /> : <div style={{ inlineSize: 64, blockSize: 64, borderRadius: 12, background: 'var(--surface2)' }} />}
+                    <Pic size={64} image={coverImage(it.item_images, it.cover_image_id)} category={it.category_id} />
                     <div className="grow">
                       <div className="name">{it.name || <span className="dim">{t('stage.inbox')}</span>}{it.brand && <span className="dim" style={{ fontWeight: 400 }}> · {it.brand}</span>}</div>
                       <div className="sub">
@@ -169,7 +169,7 @@ export function Search() {
                 <tbody>
                   {sorted.map(it => (
                     <tr key={it.id} className="rowbtn" onClick={() => navigate(`/item/${it.id}`)}>
-                      <td>{coverOf(it.item_images, it.cover_image_id) ? <img src={coverOf(it.item_images, it.cover_image_id)} alt="" loading="lazy" /> : <div style={{ inlineSize: 48, blockSize: 48, borderRadius: 8, background: 'var(--surface2)' }} />}</td>
+                      <td><Pic size={48} image={coverImage(it.item_images, it.cover_image_id)} category={it.category_id} style={{ borderRadius: 'var(--r-sm)' }} /></td>
                       <td style={{ fontWeight: 700 }}>{it.name || <span className="dim">{t('stage.inbox')}</span>}</td>
                       <td>{it.brand}</td>
                       <td>{catName(catById(it.category_id))}</td>

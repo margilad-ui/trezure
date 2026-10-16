@@ -7,6 +7,7 @@ import type { ItemWithImages, Kind, FieldDef } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
 import { navigate } from '../lib/router'
 import { LocationPicker } from '../components/LocationPicker'
+import { Pic } from '../components/Pic'
 import { TagInput } from '../components/TagInput'
 import { CategoryField } from '../components/CategoryField'
 import { toast } from '../components/Toast'
@@ -23,6 +24,7 @@ export function ItemScreen({ id }: { id: string }) {
   const [allTags, setAllTags] = useState<string[]>([])
   const [extra, setExtra] = useState<string[]>([])
   const [analyzing, setAnalyzing] = useState(false)
+  const [showOrig, setShowOrig] = useState(false)
 
   useEffect(() => { void fetchItem(id).then(v => { setIt(v); setExtra((v?.item_categories ?? []).map(x => x.category_id).filter(c => c !== v?.category_id)) }) }, [id])
   useEffect(() => { if (it) void workspaceTags(it.workspace_id).then(setAllTags).catch(() => {}) }, [it?.workspace_id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,7 +95,13 @@ export function ItemScreen({ id }: { id: string }) {
       </div>
       <div className="item-hero">
         <div className="gallery">
-          {imgs[cur] ? <img className="main" src={publicUrl('images', imgs[cur].path_original)} alt="" /> : <div className="main" style={{ aspectRatio: '1', borderRadius: 24, background: 'var(--surface2)' }} />}
+          <Pic className="main" image={imgs[cur] ?? null} category={it.category_id} thumb={false} mode={showOrig ? 'raw' : 'clean'} />
+          {imgs[cur]?.path_clean && (
+            <div className="seg gallery-seg" role="group" aria-label={t('item.view')}>
+              <button type="button" aria-pressed={!showOrig} onClick={() => setShowOrig(false)}>{t('item.view.clean')}</button>
+              <button type="button" aria-pressed={showOrig} onClick={() => setShowOrig(true)}>{t('item.view.original')}</button>
+            </div>
+          )}
           {imgs.length > 1 && <div className="thumbs">{imgs.map((im, i) => <img key={im.id} src={publicUrl('images', im.path_thumb || im.path_original)} alt="" className={i === cur ? 'on' : ''} onClick={() => setCur(i)} />)}</div>}
         </div>
         <div className="tz-card stack" style={{ gap: 14 }}>

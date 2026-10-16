@@ -142,6 +142,9 @@ export const en: Record<Key, string> = {
   'hello.line': 'Hi, I am OKI. Shoot what you have, I will sort it.',
   'hello.sub': 'No typing: one photo per item, and I name it, pick a category and suggest tags.',
   'hello.later': 'Later',
+  'item.view': 'View',
+  'item.view.clean': 'Clean',
+  'item.view.original': 'Original',
   'hello.voice': 'OKI speaks now and then. If you would rather he stayed quiet,',
   'hello.voice.link': 'turn it off here.',
 

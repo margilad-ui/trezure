@@ -10,7 +10,7 @@ const f = (key: string, he: string, en: string, type: FieldDef['type'] = 'text',
   ({ key, label_he: he, label_en: en, type, ...(options ? { options } : {}), ...(unit ? { unit } : {}) })
 
 export interface SeedCategory {
-  name_he: string; name_en: string; icon: string
+  name_he: string; name_en: string; icon: string; color?: string
   default_unit: string; default_kind: 'equipment' | 'consumable'
   fields: FieldDef[]
   children?: SeedCategory[]
@@ -18,7 +18,7 @@ export interface SeedCategory {
 
 export const CATEGORIES: SeedCategory[] = [
   {
-    name_he: 'Cricut', name_en: 'Cricut', icon: 'scissors', default_unit: 'unit', default_kind: 'equipment', fields: [],
+    name_he: 'Cricut', name_en: 'Cricut', icon: 'scissors', color: '#2BB3A3', default_unit: 'unit', default_kind: 'equipment', fields: [],
     children: [
       { name_he: 'ויניל', name_en: 'Vinyl', icon: 'layers', default_unit: 'roll', default_kind: 'consumable',
         fields: [f('color', 'צבע', 'Color'), f('width_cm', 'רוחב', 'Width', 'number', undefined, 'cm'), f('length_m', 'אורך', 'Length', 'number', undefined, 'm'), f('type', 'סוג', 'Type', 'select', ['רגיל', 'HTV', 'גליטר', 'הולוגרפי', 'מט'])] },
@@ -29,7 +29,7 @@ export const CATEGORIES: SeedCategory[] = [
     ],
   },
   {
-    name_he: 'סובלימציה', name_en: 'Sublimation', icon: 'printer', default_unit: 'unit', default_kind: 'equipment', fields: [],
+    name_he: 'סובלימציה', name_en: 'Sublimation', icon: 'printer', color: '#E0557A', default_unit: 'unit', default_kind: 'equipment', fields: [],
     children: [
       { name_he: 'דיו', name_en: 'Ink', icon: 'droplet', default_unit: 'unit', default_kind: 'consumable',
         fields: [f('color', 'צבע', 'Color', 'select', ['Cyan', 'Magenta', 'Yellow', 'Black', 'Light Cyan', 'Light Magenta']), f('volume_ml', 'נפח', 'Volume', 'number', undefined, 'ml')] },
@@ -39,17 +39,17 @@ export const CATEGORIES: SeedCategory[] = [
         fields: [f('blank_type', 'סוג', 'Type', 'select', ['ספל', 'חולצה', 'שלט', 'מחזיק מפתחות', 'פאזל', 'כרית', 'אחר']), f('color', 'צבע', 'Color')] },
     ],
   },
-  { name_he: 'ציוד סדנאות', name_en: 'Workshop gear', icon: 'briefcase', default_unit: 'unit', default_kind: 'equipment', fields: [f('for', 'לאיזו פעילות', 'For activity')] },
-  { name_he: 'ציוד יצירה', name_en: 'Craft supplies', icon: 'palette', default_unit: 'unit', default_kind: 'consumable', fields: [f('color', 'צבע', 'Color'), f('material', 'חומר', 'Material')] },
-  { name_he: 'משחקי חברה', name_en: 'Board games', icon: 'dice-5', default_unit: 'unit', default_kind: 'equipment',
+  { name_he: 'ציוד סדנאות', name_en: 'Workshop gear', icon: 'briefcase', color: '#D9822B', default_unit: 'unit', default_kind: 'equipment', fields: [f('for', 'לאיזו פעילות', 'For activity')] },
+  { name_he: 'ציוד יצירה', name_en: 'Craft supplies', icon: 'palette', color: '#E3B23C', default_unit: 'unit', default_kind: 'consumable', fields: [f('color', 'צבע', 'Color'), f('material', 'חומר', 'Material')] },
+  { name_he: 'משחקי חברה', name_en: 'Board games', icon: 'dice-5', color: '#C7382E', default_unit: 'unit', default_kind: 'equipment',
     fields: [f('players', 'שחקנים', 'Players'), f('age', 'גיל', 'Age'), f('minutes', 'זמן', 'Time', 'number', undefined, 'min')] },
-  { name_he: 'פאזלים', name_en: 'Puzzles', icon: 'puzzle', default_unit: 'unit', default_kind: 'equipment',
+  { name_he: 'פאזלים', name_en: 'Puzzles', icon: 'puzzle', color: '#3B82F6', default_unit: 'unit', default_kind: 'equipment',
     fields: [f('pieces', 'חלקים', 'Pieces', 'number'), f('age', 'גיל', 'Age')] },
-  { name_he: 'משחקי הרכבה', name_en: 'Building sets', icon: 'blocks', default_unit: 'set', default_kind: 'equipment',
+  { name_he: 'משחקי הרכבה', name_en: 'Building sets', icon: 'blocks', color: '#16A34A', default_unit: 'set', default_kind: 'equipment',
     fields: [f('pieces', 'חלקים', 'Pieces', 'number'), f('set_no', 'מספר סט', 'Set number')] },
-  { name_he: 'ציוד משרדי', name_en: 'Office supplies', icon: 'paperclip', default_unit: 'unit', default_kind: 'consumable', fields: [] },
-  { name_he: 'מתנות', name_en: 'Gifts', icon: 'gift', default_unit: 'unit', default_kind: 'equipment', fields: [f('for_whom', 'למי', 'For whom'), f('occasion', 'אירוע', 'Occasion')] },
-  { name_he: 'אחר', name_en: 'Other', icon: 'box', default_unit: 'unit', default_kind: 'equipment', fields: [] },
+  { name_he: 'ציוד משרדי', name_en: 'Office supplies', icon: 'paperclip', color: '#64748B', default_unit: 'unit', default_kind: 'consumable', fields: [] },
+  { name_he: 'מתנות', name_en: 'Gifts', icon: 'gift', color: '#A855F7', default_unit: 'unit', default_kind: 'equipment', fields: [f('for_whom', 'למי', 'For whom'), f('occasion', 'אירוע', 'Occasion')] },
+  { name_he: 'אחר', name_en: 'Other', icon: 'box', color: '#9CA3AF', default_unit: 'unit', default_kind: 'equipment', fields: [] },
 ]
 
 export const UNITS = ['unit', 'pack', 'roll', 'm', 'cm', 'ml', 'sheet', 'set', 'pair', 'box'] as const

@@ -11,7 +11,7 @@ for (const [w, tag] of [[1280, 'desktop'], [390, 'phone']]) {
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text()) })
   await p.goto('http://localhost:4173/trezure/dev/ui', { waitUntil: 'networkidle' })
   await p.waitForTimeout(1500)
-  for (const id of ['oki-hello', 'oki-x', 'oki-p', 'oki-small']) {
+  for (const id of ['pic-demo', 'oki-hello', 'oki-x', 'oki-p', 'oki-small']) {
     const el = await p.$('#' + id); if (el) await el.screenshot({ path: `${out}/${id}-${tag}.png` })
   }
   await ctx.close()

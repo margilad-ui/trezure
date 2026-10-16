@@ -4,7 +4,7 @@ import { useT, dayLabel, timeLabel, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
 import { fetchInbox, approveItem, archiveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories } from '../lib/api'
 import type { ItemWithImages, Category, Kind, FieldDef } from '../lib/types'
-import { coverOf } from '../components/Pic'
+import { coverImage, Pic } from '../components/Pic'
 import { Oki } from '../components/Oki'
 import { LocationPicker } from '../components/LocationPicker'
 import { TagInput } from '../components/TagInput'
@@ -86,7 +86,7 @@ export function Inbox() {
   useEffect(() => { void load() }, [load])
   useEffect(() => { if (workspace) void workspaceTags(workspace.id).then(setKnownTags).catch(() => {}) }, [workspace])
   // poll while something is analyzing
-  const anyPending = items.some(it => jobState(it) === 'pending')
+  const anyPending = items.some(it => jobState(it) === 'pending' || (it.image_jobs ?? []).some(j => j.type === 'clean' && (j.status === 'pending' || j.status === 'running')))
   useEffect(() => {
     if (!anyPending) return
     const id = setInterval(() => void load(true), 3000)
@@ -278,7 +278,7 @@ export function Inbox() {
                 const conf = ai.confidence ?? 0
                 const fc = ai.field_confidence ?? {}
                 const low = (k: string) => st === 'done' && !it.name && ((fc[k] ?? conf) < 0.6)
-                const cover = coverOf(it.item_images, it.cover_image_id)
+                const cover = coverImage(it.item_images, it.cover_image_id)
                 const full = it.item_images?.length ? publicUrl('images', it.item_images.slice().sort((a, b) => a.sort - b.sort)[0].path_original) : ''
                 let okiText: string | null = null
                 if (st === 'pending') okiText = t('inbox.analyzing')
@@ -290,7 +290,7 @@ export function Inbox() {
                 return (
                   <div key={it.id} ref={el => { cardRefs.current[it.id] = el }} className={`tz-card card-item ${focus === it.id ? 'focus' : ''}`} onKeyDown={e => onCardKey(e, it.id)} onFocusCapture={() => setFocus(it.id)}>
                     <div className="ci-head">
-                      {cover ? <img className="pic" src={cover} alt="" onClick={() => setZoom(full)} /> : <div className="pic" />}
+                      <Pic className="pic" image={cover} category={d.category_id || it.category_id} onClick={full ? () => setZoom(full) : undefined} />
                       <div className="grow">
                         {okiText === null && (
                           <div className="oki-line">

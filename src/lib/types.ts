@@ -22,7 +22,7 @@ export interface FieldDef {
 
 export interface Category {
   id: string; workspace_id: string; parent_id: string | null
-  name_he: string; name_en: string | null; icon: string | null
+  name_he: string; name_en: string | null; icon: string | null; color: string | null
   default_unit: string; default_kind: 'equipment' | 'consumable'
   fields: FieldDef[]; sort: number
 }

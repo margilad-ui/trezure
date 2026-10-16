@@ -78,7 +78,7 @@ export async function createWorkspaceWithSeed(name: string) {
   let sort = 0
   for (const c of CATEGORIES) {
     const { data: parent, error: e2 } = await supabase.from('categories').insert({
-      workspace_id: ws, name_he: c.name_he, name_en: c.name_en, icon: c.icon, default_unit: c.default_unit, default_kind: c.default_kind, fields: c.fields, sort: sort++,
+      workspace_id: ws, name_he: c.name_he, name_en: c.name_en, icon: c.icon, color: c.color ?? null, default_unit: c.default_unit, default_kind: c.default_kind, fields: c.fields, sort: sort++,
     }).select('id').single()
     if (e2) throw e2
     if (c.children?.length) {
@@ -122,6 +122,16 @@ export function catName(c: Category | undefined | null): string {
 }
 export function catById(id: string | null | undefined): Category | undefined {
   return state.categories.find(c => c.id === id)
+}
+/** Tint for the clean item display: the category's color, else its parent's, else a stable hue from the id. */
+export function catColor(id: string | null | undefined): string {
+  const c = catById(id)
+  if (c?.color) return c.color
+  const p = c?.parent_id ? catById(c.parent_id) : undefined
+  if (p?.color) return p.color
+  if (!id) return '#9CA3AF'
+  let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return `oklch(62% 0.12 ${h % 360})`
 }
 export function locById(id: string | null | undefined): Location | undefined {
   return state.locations.find(l => l.id === id)

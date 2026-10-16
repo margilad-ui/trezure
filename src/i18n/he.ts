@@ -140,6 +140,9 @@ export const he = {
   'hello.line': 'היי, אני OKI. צלם מה שיש, אני אסדר.',
   'hello.sub': 'בלי להקליד כלום: תמונה אחת לפריט, ואני מזהה, מציע שם, קטגוריה ותגיות.',
   'hello.later': 'אחר כך',
+  'item.view': 'תצוגה',
+  'item.view.clean': 'נקי',
+  'item.view.original': 'מקור',
   'hello.voice': 'OKI מדבר לפעמים. אם אתה מעדיף שישתוק,',
   'hello.voice.link': 'אפשר לכבות כאן.',
 
