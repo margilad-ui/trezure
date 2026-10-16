@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Oki } from './Oki'
 import { useT } from '../i18n'
@@ -9,15 +9,17 @@ const LS = 'tz.hello'
 
 /**
  * First run greeting. OKI waves, says one line, and leaves. Shown once per device (localStorage).
- * The voice line only plays if OKI's voice is switched on in settings (off by default).
+ * The voice line only plays if OKI's voice is switched on in settings (on by default, one tap to turn off).
  */
 export function OkiHello({ force }: { force?: boolean } = {}) {
   const { t, lang } = useT()
   const [show, setShow] = useState(() => { if (force) return true; try { return !localStorage.getItem(LS) } catch { return false } })
+  // the voice line plays once when the card appears (not on animation events: every blink starts one)
+  useEffect(() => { if (show) play('oki-you-got-it') }, [show])
   if (!show) return null
   const dismiss = () => { try { localStorage.setItem(LS, String(Date.now())) } catch { /* ignore */ } setShow(false) }
   return (
-    <div className="oki-hello tz-card" role="status" onAnimationStart={() => play('oki-you-got-it')}>
+    <div className="oki-hello tz-card" role="status">
       <Oki size={88} pose="wave" flip={lang === 'he'} className="enter" />
       <div className="oki-hello-text">
         <p className="lead">{t('hello.line')}</p>
