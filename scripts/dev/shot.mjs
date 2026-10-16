@@ -1,0 +1,17 @@
+import { chromium } from 'playwright'
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' })
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })
+const p = await ctx.newPage()
+const errs = []
+p.on('pageerror', e => errs.push(String(e)))
+p.on('console', m => { if (m.type() === 'error') errs.push(m.text()) })
+await p.goto('http://localhost:4173/trezure/', { waitUntil: 'networkidle' })
+await p.waitForTimeout(1200)
+await p.screenshot({ path: process.argv[2] + '/login-mobile.png' })
+const ctx2 = await b.newContext({ viewport: { width: 1280, height: 800 } })
+const p2 = await ctx2.newPage()
+await p2.goto('http://localhost:4173/trezure/', { waitUntil: 'networkidle' })
+await p2.waitForTimeout(800)
+await p2.screenshot({ path: process.argv[2] + '/login-desktop.png' })
+console.log('errors:', errs)
+await b.close()

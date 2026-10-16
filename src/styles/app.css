@@ -225,5 +225,6 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 .tz-btn:disabled { opacity: .55; cursor: default; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { rotate: 360deg } }
+.login-card .zur { justify-self: center; }
 .zur { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); font-size: var(--fs-meta); font-weight: 600; }
 .zur img { block-size: 18px; inline-size: auto; }
