@@ -127,7 +127,7 @@ export function Locations({ id }: { id?: string }) {
           <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void onPhoto(f); e.target.value = '' }} />
           <div className="stack" style={{ gap: 6 }}>
             <span className="tz-loc" style={{ ['--c' as string]: here.color || 'var(--teal)' }}><i aria-hidden="true" /><span className="mono">{here.code}</span></span>
-            <span className="meta">{t(`loc.kind.${here.kind}` as Key)} · {t('loc.count', { n: deepCount(here.id) })}</span>
+            <span className="meta">{t(`loc.kind.${here.kind}` as Key)} · {(n => n === 0 ? t('loc.count.zero') : n === 1 ? t('loc.count.one') : t('loc.count', { n }))(deepCount(here.id))}</span>
           </div>
         </div>
       )}
@@ -170,7 +170,7 @@ export function Locations({ id }: { id?: string }) {
         items === null ? <div className="empty"><Loader2 className="spin" size={24} /></div>
         : items.length > 0 ? (
           <>
-            <h2 className="loc-sub">{t('loc.here', { n: items.length })}</h2>
+            <h2 className="loc-sub">{items.length === 1 ? t('loc.here.one') : t('loc.here', { n: items.length })}</h2>
             <div className="grid-view">
               {items.map(it => (
                 <button key={it.id} type="button" className="grid-card" onClick={() => navigate(`/item/${it.id}`)}>
