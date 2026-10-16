@@ -11,6 +11,14 @@ export async function fetchInbox(ws: string): Promise<ItemWithImages[]> {
   return (data ?? []) as unknown as ItemWithImages[]
 }
 
+/** How many items are still sitting in sort. Head request, no rows transferred. */
+export async function inboxCount(ws: string): Promise<number> {
+  const { count, error } = await supabase.from('items').select('id', { count: 'exact', head: true })
+    .eq('workspace_id', ws).eq('stage', 'inbox').is('archived_at', null)
+  if (error) throw error
+  return count ?? 0
+}
+
 export interface SearchFilters {
   q?: string
   category_id?: string | null

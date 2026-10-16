@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search as SearchIcon, LayoutGrid, List, Table2, Loader2 } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { searchItems, adjustQty, type SearchFilters } from '../lib/api'
+import { searchItems, adjustQty, inboxCount, type SearchFilters } from '../lib/api'
 import type { ItemWithImages, Kind, StockState } from '../lib/types'
 import { coverOf } from '../components/Pic'
 import { Oki } from '../components/Oki'
@@ -24,8 +24,15 @@ export function Search() {
   const [sort, setSort] = useState<{ k: keyof ItemWithImages | 'cat' | 'loc'; d: 1 | -1 }>({ k: 'updated_at', d: -1 })
   const timer = useRef<number | undefined>(undefined)
   const lastCount = useRef<number | null>(null)
+  const [waiting, setWaiting] = useState(0)
 
   useEffect(() => { try { localStorage.setItem(LS_VIEW, view) } catch { /* ignore */ } }, [view])
+
+  // how many items are still waiting in sort, so the home screen never looks empty by mistake
+  useEffect(() => {
+    if (!workspace) return
+    void inboxCount(workspace.id).then(setWaiting).catch(() => {})
+  }, [workspace, items])
 
   useEffect(() => {
     if (!workspace) return
@@ -78,7 +85,7 @@ export function Search() {
         </select>
         {(['equipment', 'consumable'] as Kind[]).map(k => chip(t(`kind.${k}` as Key), f.kind === k, () => setF(x => ({ ...x, kind: x.kind === k ? null : k }))))}
         {(['low', 'empty'] as StockState[]).map(s => chip(t(`stock.${s}` as Key), f.stock === s, () => setF(x => ({ ...x, stock: x.stock === s ? null : s }))))}
-        {chip(t('search.inbox'), Boolean(f.inbox), () => setF(x => ({ ...x, inbox: !x.inbox })))}
+        {chip(waiting > 0 ? `${t('search.inbox')} ${waiting}` : t('search.inbox'), Boolean(f.inbox), () => setF(x => ({ ...x, inbox: !x.inbox })))}
         <span className="grow" />
         <div className="seg" style={{ flex: 'none' }}>
           <button type="button" aria-pressed={view === 'list'} aria-label={t('search.view.list')} onClick={() => setView('list')} style={{ padding: '0 10px' }}><List size={18} /></button>
@@ -91,8 +98,13 @@ export function Search() {
         isEmptyWorkspace ? (
           <div className="empty">
             <Oki size={140} className="oki" />
-            <p style={{ fontSize: 'var(--fs-lead)', color: 'var(--ink)' }}>{t('search.empty')}</p>
-            <a className="tz-btn" href={href('/capture')} onClick={onLink}>{t('nav.capture')}</a>
+            <p style={{ fontSize: 'var(--fs-lead)', color: 'var(--ink)' }}>
+              {waiting > 0 ? (waiting === 1 ? t('search.waiting.one') : t('search.waiting', { n: waiting })) : t('search.empty')}
+            </p>
+            <div className="row" style={{ gap: 10 }}>
+              {waiting > 0 && <a className="tz-btn" href={href('/inbox')} onClick={onLink}>{t('search.gosort')}</a>}
+              <a className={`tz-btn ${waiting > 0 ? 'ghost' : ''}`} href={href('/capture')} onClick={onLink}>{t('nav.capture')}</a>
+            </div>
           </div>
         ) : items.length === 0 ? (
           <div className="empty"><Oki size={120} className="oki" /><p>{t('search.noresults')}</p></div>

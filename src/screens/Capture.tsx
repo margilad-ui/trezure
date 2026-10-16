@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X, ImagePlus, Loader2, WifiOff } from 'lucide-react'
+import { X, ImagePlus, Loader2, WifiOff, Check } from 'lucide-react'
 import { useT } from '../i18n'
 import { navigate } from '../lib/router'
 import { useStore } from '../lib/store'
@@ -21,8 +21,11 @@ export function Capture() {
   const { workspace, locations } = useStore()
   const q = useQueue()
   const videoRef = useRef<HTMLVideoElement>(null)
+  const viewRef = useRef<HTMLDivElement>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const urlsRef = useRef<string[]>([])
   const [camErr, setCamErr] = useState(false)
   const [loc, setLoc] = useState<string | null>(() => { try { return localStorage.getItem(LS_LOC) } catch { return null } })
   const [pickOpen, setPickOpen] = useState(false)
@@ -73,15 +76,44 @@ export function Capture() {
     return () => { cancelled = true; streamRef.current?.getTracks().forEach(tr => tr.stop()); streamRef.current = null }
   }, [])
 
-  // restore recents from the queue (pending) on mount
+  // restore pending shots from the queue on mount
   useEffect(() => {
     void listQueue().then(items => {
-      setRecent(items.slice(-6).map(s => ({ id: s.id, url: URL.createObjectURL(s.thumb), pending: true })))
+      const list = items.slice(-6).map(s => { const url = URL.createObjectURL(s.thumb); urlsRef.current.push(url); return { id: s.id, url, pending: true } })
+      setRecent(list)
     })
+    return () => { urlsRef.current.forEach(u => URL.revokeObjectURL(u)); urlsRef.current = [] }
   }, [])
-  useEffect(() => () => { recent.forEach(r => URL.revokeObjectURL(r.url)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const chooseLoc = (id: string) => { setLoc(id); try { localStorage.setItem(LS_LOC, id) } catch { /* ignore */ } }
+
+  /** The captured frame flies from the viewfinder into the recent strip, the way a phone camera does. */
+  const fly = useCallback((url: string) => {
+    const vf = viewRef.current, strip = stripRef.current
+    if (!vf || !strip) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const from = vf.getBoundingClientRect(), to = strip.getBoundingClientRect()
+    if (!from.width || !to.width) return
+    const rtl = document.documentElement.dir === 'rtl'
+    const img = document.createElement('img')
+    img.src = url
+    img.alt = ''
+    Object.assign(img.style, {
+      position: 'fixed', insetInlineStart: 'auto', left: `${from.left}px`, top: `${from.top}px`,
+      width: `${from.width}px`, height: `${from.height}px`, borderRadius: '24px',
+      objectFit: 'cover', zIndex: '35', pointerEvents: 'none', willChange: 'transform',
+    } as Partial<CSSStyleDeclaration>)
+    document.body.appendChild(img)
+    const scale = 56 / from.width
+    const tx = (rtl ? to.right - 32 : to.left + 32) - (from.left + from.width / 2)
+    const ty = (to.top + 32) - (from.top + from.height / 2)
+    const anim = img.animate(
+      [{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${tx}px, ${ty}px) scale(${scale})`, opacity: 0.9 }],
+      { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' },
+    )
+    const done = () => img.remove()
+    anim.onfinish = done; anim.oncancel = done
+  }, [])
 
   const shoot = useCallback(async (file?: File) => {
     if (!workspace) return
@@ -102,43 +134,52 @@ export function Capture() {
       setLastShot(queued)
       setAngleMode(false)
       setQty(1)
-      setCount(c => c + 1); setPop(true); setTimeout(() => setPop(false), 240)
+      if (!isAngle) { setCount(c => c + 1); setPop(true); setTimeout(() => setPop(false), 260) }
       const url = URL.createObjectURL(shot.thumb)
+      urlsRef.current.push(url)
+      fly(url)
       setRecent(r => [...r.slice(-5), { id: queued.id, url, pending: true }])
     } catch (e) {
       toast(String((e as Error).message || t('common.error')), 'err')
     } finally { setBusy(false) }
-  }, [workspace, loc, qty, angleMode, lastShot, t])
+  }, [workspace, loc, qty, angleMode, lastShot, t, fly])
 
   // mark recents as uploaded when the queue drains
   useEffect(() => {
     if (q.pending === 0) setRecent(r => r.map(x => ({ ...x, pending: false })))
   }, [q.pending])
 
+  const leave = useCallback(() => navigate(count > 0 ? '/inbox' : '/'), [count])
+
   // keyboard: space or enter shoots (desktop testing)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (pickOpen || qtyOpen) return
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); void shoot() }
-      if (e.key === 'Escape') navigate('/')
+      if (e.key === 'Escape') leave()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [shoot, pickOpen, qtyOpen])
+  }, [shoot, pickOpen, qtyOpen, leave])
 
   return (
     <div className="capture">
       <div className="capture-top">
         <LocChip id={loc} onClick={() => setPickOpen(true)} placeholder={t('capture.pickloc')} />
-        <div className="row">
+        <div className="row" style={{ gap: 8 }}>
           {!online && <span className="pending-badge"><WifiOff size={14} /> {t('common.offline')}</span>}
-          {q.pending > 0 && <span className="pending-badge">{q.uploading && <Loader2 size={14} className="spin" />} {t('capture.pending', { n: q.pending })}</span>}
-          <button type="button" className="capture-close icon" aria-label={t('capture.close')} onClick={() => navigate('/')}><X size={22} /></button>
+          {count > 0 && (
+            <span className={`shot-count ${pop ? 'pop' : ''}`} aria-live="polite">
+              <OkiMark size={20} color="rgba(255,255,255,.92)" eye="#0a1520" />
+              <span className="mono">{count}</span>
+            </span>
+          )}
+          <button type="button" className="capture-close icon" aria-label={t('capture.close')} onClick={leave}><X size={22} /></button>
         </div>
       </div>
 
       <div className="capture-mid">
-        <div className="viewfinder">
+        <div className="viewfinder" ref={viewRef}>
           {camErr ? (
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center', color: 'rgba(255,255,255,.8)' }}>
               <p>{t('capture.nocam')}</p>
@@ -148,6 +189,16 @@ export function Capture() {
           <div className={`flash ${flash ? 'on' : ''}`} aria-hidden="true" />
         </div>
         <p className="capture-hint">{angleMode ? t('capture.hint.again') : t('capture.hint')}</p>
+      </div>
+
+      <div className="recent" ref={stripRef} aria-label={t('capture.recent')}>
+        {recent.length === 0 && <span className="recent-empty" aria-hidden="true" />}
+        {recent.slice().reverse().map(r => (
+          <span key={r.id} className="recent-slot">
+            <img src={r.url} alt="" className={r.pending ? 'pending' : ''} />
+            {r.pending ? <Loader2 size={12} className="spin dot" /> : <Check size={12} className="dot ok" />}
+          </span>
+        ))}
       </div>
 
       <div className="capture-controls">
@@ -162,13 +213,16 @@ export function Capture() {
         </button>
       </div>
 
-      <div className="row" style={{ justifyContent: 'space-between', padding: '0 20px 6px' }}>
-        <span className={`counter ${pop ? 'pop' : ''}`}><OkiMark size={24} color="rgba(255,255,255,.9)" eye="#0a1520" />{count}</span>
-        {camErr && <button type="button" className="tz-btn quiet sm" onClick={() => fileRef.current?.click()}>{t('capture.title')}</button>}
+      <div className="capture-foot">
+        {camErr && <button type="button" className="tz-btn quiet" onClick={() => fileRef.current?.click()}>{t('capture.title')}</button>}
         <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={e => { const f = e.target.files?.[0]; if (f) void shoot(f); e.target.value = '' }} />
-      </div>
-      <div className="recent" aria-label={t('capture.recent')}>
-        {recent.map(r => <img key={r.id} src={r.url} alt="" className={r.pending ? 'pending' : ''} />)}
+        {count > 0 && (
+          <button type="button" className="tz-btn finish" onClick={() => navigate('/inbox')}>
+            <Check size={20} />
+            {count === 1 ? t('capture.finish.one') : t('capture.finish', { n: count })}
+            {q.pending > 0 && <span className="pending-inline">{q.uploading && <Loader2 size={13} className="spin" />} {t('capture.pending', { n: q.pending })}</span>}
+          </button>
+        )}
       </div>
 
       <LocationPicker open={pickOpen} onClose={() => setPickOpen(false)} onPick={chooseLoc} />
