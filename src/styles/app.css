@@ -346,3 +346,22 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 .history time { flex: none; }
 .item-hero .thumbs .thumb-add { inline-size: 64px; block-size: 64px; border-radius: var(--r-sm); border: 1.5px dashed var(--line); background: var(--surface2); color: var(--teal-dark); display: grid; place-items: center; cursor: pointer; flex: none; }
 .item-hero .thumbs .thumb-add:hover { border-color: var(--teal); background: var(--teal-xlight); }
+
+/* locations */
+.crumbs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: var(--fs-sm); color: var(--dim); }
+.crumbs span { display: inline-flex; align-items: center; gap: 4px; }
+.crumbs a { color: var(--teal-dark); font-weight: 600; }
+.crumbs b { color: var(--ink); }
+.loc-head { display: flex; align-items: center; gap: 14px; margin-block-end: 12px; }
+.loc-photo { inline-size: 92px; block-size: 92px; border-radius: var(--r-md); border: 1.5px dashed var(--line); background: var(--surface2); color: var(--teal-dark); display: grid; place-items: center; gap: 2px; cursor: pointer; flex: none; overflow: hidden; padding: 0; }
+.loc-photo img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.loc-photo:hover { border-color: var(--c, var(--teal)); }
+.loc-grid { display: grid; gap: 8px; }
+@media (min-width: 760px) { .loc-grid { grid-template-columns: 1fr 1fr; } }
+.loc-card { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--sh-card); color: var(--ink); border-inline-start: 4px solid var(--c, var(--teal)); }
+.loc-card:hover { background: var(--surface2); }
+.loc-card .grow { display: grid; gap: 2px; min-inline-size: 0; }
+.loc-card b { font-size: var(--fs-base); }
+.loc-card-pic { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm); object-fit: cover; background: var(--surface2); flex: none; display: grid; place-items: center; color: var(--c, var(--teal)); }
+.loc-n { font: 700 var(--fs-sm) var(--font-mono); min-inline-size: 34px; block-size: 28px; padding-inline: 8px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c, var(--teal)) 14%, var(--surface)); color: var(--ink); display: grid; place-items: center; flex: none; }
+.loc-sub { font-size: var(--fs-h3); margin-block: 20px 10px; }

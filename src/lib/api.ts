@@ -222,6 +222,37 @@ export async function ensureCleanThumbs(ws: string): Promise<void> {
   for (const r of (data ?? []) as { id: string; item_id: string }[]) await requestClean(ws, r.item_id, r.id, true)
 }
 
+/** How many live items sit directly in each location. Rolling up to parents is done in the screen. */
+export async function locationCounts(ws: string): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from('items').select('location_id').eq('workspace_id', ws).is('archived_at', null).limit(5000)
+  if (error) throw error
+  const out: Record<string, number> = {}
+  for (const r of (data ?? []) as { location_id: string | null }[]) if (r.location_id) out[r.location_id] = (out[r.location_id] ?? 0) + 1
+  return out
+}
+
+/** Creates a location under a parent. The code is derived from the parent so labels stay readable: OF-03-02. */
+export async function createLocation(ws: string, parentId: string | null, name: string, kind: string, parentCode?: string, siblings = 0): Promise<string> {
+  const code = parentCode ? `${parentCode}-${String(siblings + 1).padStart(2, '0')}` : name.slice(0, 2).toUpperCase()
+  const { data, error } = await supabase.from('locations').insert({ workspace_id: ws, parent_id: parentId, name: name.trim(), kind, code, sort: siblings }).select('id').single()
+  if (error) throw error
+  return data.id as string
+}
+
+export async function updateLocation(id: string, patch: { name?: string; kind?: string; color?: string | null; code?: string; photo_path?: string | null }) {
+  const { error } = await supabase.from('locations').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+/** A photo of the whole shelf, so the place is recognised by sight and not only by its code. */
+export async function uploadLocationPhoto(ws: string, locId: string, blob: Blob): Promise<string> {
+  const path = `${ws}/loc/${locId}-${Date.now()}.webp`
+  const up = await supabase.storage.from('images').upload(path, blob, { contentType: 'image/webp', upsert: true })
+  if (up.error) throw up.error
+  await updateLocation(locId, { photo_path: path })
+  return path
+}
+
 export async function saveSecret(ws: string, key: string, value: string) {
   const { error } = await supabase.rpc('set_secret', { ws, k: key, v: value })
   if (error) throw error
