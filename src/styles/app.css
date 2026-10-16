@@ -75,6 +75,9 @@ input, select, textarea { font: inherit; }
 .login-err { color: var(--danger); font-size: var(--fs-sm); font-weight: 600; }
 .code-input { text-align: center; font-family: var(--font-mono); font-size: var(--fs-h2); letter-spacing: .3em; direction: ltr; }
 
+.pulse-focus { animation: pulse-focus 2.4s var(--ease) both; }
+@keyframes pulse-focus { 0%, 100% { box-shadow: var(--sh-card) } 20%, 60% { box-shadow: 0 0 0 4px var(--teal-light), var(--sh-float) } }
+
 /* first run greeting */
 .oki-hello { position: relative; display: flex; gap: 16px; align-items: center; margin-block-end: 14px; padding: 18px 20px; background: linear-gradient(135deg, var(--teal-xlight), var(--surface)); animation: rise var(--t-slow) var(--ease) both; }
 .oki-hello-text { display: grid; gap: 4px; min-inline-size: 0; }

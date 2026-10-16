@@ -1,6 +1,7 @@
 /** Offline capture queue in IndexedDB. Each shot is stored until uploaded. */
 import { get, set, del, keys, createStore } from 'idb-keyval'
 import { supabase } from './supabase'
+import { requestClean } from './api'
 import { useSyncExternalStore } from 'react'
 
 const store = createStore('trezure', 'queue')
@@ -96,6 +97,8 @@ async function uploadOne(q: QueuedShot) {
   })
   if (e3) throw e3
   if (isNew) await supabase.from('items').update({ cover_image_id: imgId }).eq('id', itemId)
+  // background cleanup for every image, in parallel with analysis; a missing key just marks the job as error
+  void requestClean(q.ws, itemId, imgId)
   // analysis job, only for the first (front) image
   if (isNew) {
     const { data: job, error: e4 } = await supabase.from('image_jobs')

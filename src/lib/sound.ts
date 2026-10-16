@@ -4,7 +4,7 @@ export type SoundName = 'open' | 'capture' | 'found' | 'sorted' | 'question' | '
 
 const LS = 'tz.sounds'
 export type SoundPrefs = { capture: boolean; found: boolean; sorted: boolean; complete: boolean; okiVoice: boolean }
-const DEFAULT: SoundPrefs = { capture: true, found: true, sorted: false, complete: false, okiVoice: false }
+const DEFAULT: SoundPrefs = { capture: true, found: true, sorted: false, complete: false, okiVoice: true }
 
 export function getSoundPrefs(): SoundPrefs {
   try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(LS) || '{}') } } catch { return DEFAULT }

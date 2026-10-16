@@ -13,9 +13,10 @@ export interface State {
   locations: Location[]
   categories: Category[]
   hasKey: boolean
+  hasCleanKey: boolean
 }
 
-let state: State = { ready: false, session: null, workspace: null, locations: [], categories: [], hasKey: false }
+let state: State = { ready: false, session: null, workspace: null, locations: [], categories: [], hasKey: false, hasCleanKey: false }
 const listeners = new Set<() => void>()
 function set(p: Partial<State>) { state = { ...state, ...p }; listeners.forEach(f => f()) }
 
@@ -33,7 +34,7 @@ export async function boot() {
 }
 
 async function applySession(session: Session | null) {
-  if (!session) { set({ ready: true, session: null, workspace: null, locations: [], categories: [], hasKey: false }); return }
+  if (!session) { set({ ready: true, session: null, workspace: null, locations: [], categories: [], hasKey: false, hasCleanKey: false }); return }
   set({ session })
   await loadWorkspace()
   set({ ready: true })
@@ -55,12 +56,13 @@ export async function selectWorkspace(ws: Workspace) {
 
 export async function refreshRefs() {
   const ws = state.workspace; if (!ws) return
-  const [{ data: locs }, { data: cats }, { data: key }] = await Promise.all([
+  const [{ data: locs }, { data: cats }, { data: key }, { data: ckey }] = await Promise.all([
     supabase.from('locations').select('*').eq('workspace_id', ws.id).order('sort').order('name'),
     supabase.from('categories').select('*').eq('workspace_id', ws.id).order('sort').order('name_he'),
     supabase.rpc('has_secret', { ws: ws.id, k: 'anthropic' }),
+    supabase.rpc('has_secret', { ws: ws.id, k: 'replicate' }),
   ])
-  set({ locations: (locs ?? []) as Location[], categories: (cats ?? []) as Category[], hasKey: Boolean(key) })
+  set({ locations: (locs ?? []) as Location[], categories: (cats ?? []) as Category[], hasKey: Boolean(key), hasCleanKey: Boolean(ckey) })
 }
 
 /** Creates the first workspace with sites and categories. */

@@ -111,6 +111,25 @@ export async function requestAnalysis(item: ItemWithImages) {
   await supabase.functions.invoke('vision', { body: { job_id: job.id } })
 }
 
+/** Queues a background cleanup for one image and fires the function. Never throws: cleanup failing must not touch the item. */
+export async function requestClean(ws: string, itemId: string, imageId: string) {
+  try {
+    const { data: job, error } = await supabase.from('image_jobs')
+      .insert({ workspace_id: ws, item_id: itemId, image_id: imageId, type: 'clean', status: 'pending' })
+      .select('id').single()
+    if (error || !job) return
+    void supabase.functions.invoke('clean', { body: { job_id: job.id } }).catch(() => {})
+  } catch { /* ignore */ }
+}
+
+/** Sends every image without a clean cutout to cleanup (after a key is saved, or on demand). Returns how many. */
+export async function cleanMissing(ws: string, limit = 200): Promise<number> {
+  const { data } = await supabase.from('item_images').select('id,item_id').eq('workspace_id', ws).is('path_clean', null).order('created_at', { ascending: false }).limit(limit)
+  const rows = (data ?? []) as { id: string; item_id: string }[]
+  for (const r of rows) await requestClean(ws, r.item_id, r.id)
+  return rows.length
+}
+
 export async function saveSecret(ws: string, key: string, value: string) {
   const { error } = await supabase.rpc('set_secret', { ws, k: key, v: value })
   if (error) throw error

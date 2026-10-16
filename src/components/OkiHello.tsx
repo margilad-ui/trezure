@@ -22,6 +22,7 @@ export function OkiHello({ force }: { force?: boolean } = {}) {
       <div className="oki-hello-text">
         <p className="lead">{t('hello.line')}</p>
         <p className="dim">{t('hello.sub')}</p>
+        <p className="dim" style={{ fontSize: 'var(--fs-meta)' }}>{t('hello.voice')} <a href={href('/settings')} onClick={e => { try { sessionStorage.setItem('tz.settings.focus', 'sounds') } catch { /* ignore */ } dismiss(); onLink(e) }} style={{ fontWeight: 700 }}>{t('hello.voice.link')}</a></p>
         <div className="row" style={{ gap: 10, marginBlockStart: 6 }}>
           <a className="tz-btn" href={href('/capture')} onClick={e => { dismiss(); onLink(e) }}>{t('nav.capture')}</a>
           <button type="button" className="tz-btn quiet" onClick={dismiss}>{t('hello.later')}</button>

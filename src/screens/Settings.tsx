@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Loader2, KeyRound, Check, Lock } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Loader2, KeyRound, Check, Lock, Wand2 } from 'lucide-react'
 import { useT, setLang } from '../i18n'
 import { useStore, refreshRefs } from '../lib/store'
-import { saveSecret } from '../lib/api'
+import { saveSecret, cleanMissing } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { getSoundPrefs, setSoundPrefs, type SoundPrefs } from '../lib/sound'
 import { toast } from '../components/Toast'
@@ -10,20 +10,43 @@ import { VERSION } from './About'
 
 export function Settings() {
   const { t, lang } = useT()
-  const { workspace, hasKey, session } = useStore()
+  const { workspace, hasKey, hasCleanKey, session } = useStore()
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
+  const [ckey, setCkey] = useState('')
+  const [cbusy, setCbusy] = useState(false)
   const [snd, setSnd] = useState<SoundPrefs>(getSoundPrefs())
   const [pw1, setPw1] = useState('')
   const [pw2, setPw2] = useState('')
   const [pwBusy, setPwBusy] = useState(false)
   const [wsName, setWsName] = useState(workspace?.name ?? '')
+  const soundsRef = useRef<HTMLDivElement>(null)
+  const [focusSounds, setFocusSounds] = useState(false)
+  useEffect(() => {
+    let f = ''
+    try { f = sessionStorage.getItem('tz.settings.focus') ?? ''; sessionStorage.removeItem('tz.settings.focus') } catch { /* ignore */ }
+    if (f !== 'sounds') return
+    setFocusSounds(true)
+    window.setTimeout(() => soundsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+    const id = window.setTimeout(() => setFocusSounds(false), 2600)
+    return () => window.clearTimeout(id)
+  }, [])
 
   async function saveKey() {
     if (!workspace || !key.trim()) return
     setBusy(true)
     try { await saveSecret(workspace.id, 'anthropic', key.trim()); setKey(''); await refreshRefs(); toast(t('settings.key.saved'), 'ok') }
     catch (e) { toast(String((e as Error).message), 'err') } finally { setBusy(false) }
+  }
+  async function saveCleanKey() {
+    if (!workspace || !ckey.trim()) return
+    setCbusy(true)
+    try {
+      await saveSecret(workspace.id, 'replicate', ckey.trim()); setCkey(''); await refreshRefs(); toast(t('settings.ckey.saved'), 'ok')
+      const n = await cleanMissing(workspace.id)
+      if (n) toast(t('settings.ckey.backfill', { n }), 'ok', 4000)
+    }
+    catch (e) { toast(String((e as Error).message), 'err') } finally { setCbusy(false) }
   }
   async function saveName() {
     if (!workspace || !wsName.trim() || wsName === workspace.name) return
@@ -73,6 +96,17 @@ export function Settings() {
         </div>
 
         <div className="tz-card stack" style={{ gap: 10 }}>
+          <div className="row"><Wand2 size={20} style={{ color: 'var(--teal)' }} /><strong>{t('settings.ckey')}</strong><span className="grow" />
+            <span className={`badge-stock ${hasCleanKey ? '' : 'low'}`} style={hasCleanKey ? { background: 'var(--teal-light)', color: 'var(--teal-dark)' } : undefined}>{hasCleanKey ? <><Check size={12} /> {t('settings.key.set')}</> : t('settings.key.none')}</span>
+          </div>
+          <p className="meta">{t('settings.ckey.hint')}</p>
+          <div className="row">
+            <input className="tz-input mono" type="password" autoComplete="off" value={ckey} onChange={e => setCkey(e.target.value)} placeholder={t('settings.ckey.placeholder')} dir="ltr" style={{ fontWeight: 400 }} />
+            <button type="button" className="tz-btn" disabled={cbusy || ckey.trim().length < 20} onClick={() => void saveCleanKey()}>{cbusy ? <Loader2 className="spin" size={18} /> : t('settings.key.save')}</button>
+          </div>
+        </div>
+
+        <div className="tz-card stack" style={{ gap: 10 }}>
           <div className="row"><Lock size={20} style={{ color: 'var(--teal)' }} /><strong>{t('settings.password')}</strong></div>
           <p className="meta">{t('settings.password.hint')}</p>
           <input className="tz-input" type="password" autoComplete="new-password" placeholder={t('settings.password.new')}
@@ -85,7 +119,7 @@ export function Settings() {
           </button>
         </div>
 
-        <div className="tz-card">
+        <div className={`tz-card ${focusSounds ? 'pulse-focus' : ''}`} ref={soundsRef} id="sounds">
           <div className="tz-label" style={{ marginBlockEnd: 4 }}>{t('settings.sounds')}</div>
           <Switch k="capture" label={t('settings.sound.capture')} />
           <Switch k="found" label={t('settings.sound.found')} />
