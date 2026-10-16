@@ -39,24 +39,24 @@ export async function buildShareImage(item: ItemWithImages, color: string, size 
   g.addColorStop(0, wash(color, 0.11)); g.addColorStop(1, wash(color, 0.28))
   x.fillStyle = g; x.fillRect(0, 0, size, size)
 
-  // contact shadow under the item
-  const cut = Boolean(pick.path_clean)
-  if (cut) {
-    x.save()
-    x.filter = 'blur(14px)'
-    x.fillStyle = 'rgba(15,30,45,.22)'
-    x.beginPath()
-    x.ellipse(size / 2, size * 0.845, size * 0.26, size * 0.028, 0, 0, Math.PI * 2)
-    x.fill()
-    x.restore()
-  }
-
   // the item, contained with the same padding the app uses
+  const cut = Boolean(pick.path_clean)
   const pad = size * 0.11
   const box = size - pad * 2 - size * 0.08
   const scale = cut ? Math.min(box / photo.width, box / photo.height) : Math.max(box / photo.width, box / photo.height)
   const w = photo.width * scale, h = photo.height * scale
   const dx = (size - w) / 2, dy = pad + (box - h) / 2
+
+  // contact shadow, sitting on the item's own base rather than at a fixed height
+  if (cut) {
+    x.save()
+    x.filter = `blur(${Math.round(size * 0.012)}px)`
+    x.fillStyle = 'rgba(15,30,45,.22)'
+    x.beginPath()
+    x.ellipse(size / 2, dy + h - h * 0.015, Math.min(w * 0.42, size * 0.3), size * 0.022, 0, 0, Math.PI * 2)
+    x.fill()
+    x.restore()
+  }
   if (cut) x.drawImage(photo, dx, dy, w, h)
   else {
     x.save()
