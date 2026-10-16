@@ -167,6 +167,9 @@ export const en: Record<Key, string> = {
   'item.archived': 'Archived',
   'item.images': 'Photos',
   'item.ai': 'What OKI saw',
+  'item.analyzed': 'OKI looked again.',
+  'item.analyzed.tags': 'OKI looked again and suggests {n} tags.',
+  'item.analyze.slow': 'OKI is still working. Refresh in a moment.',
 
   'settings.title': 'Settings',
   'settings.lang': 'Language',

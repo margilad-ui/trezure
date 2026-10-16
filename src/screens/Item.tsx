@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Archive, Loader2 } from 'lucide-react'
+import { ArrowRight, Archive, Loader2, RefreshCw } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, catById, locLabel, locColor } from '../lib/store'
-import { fetchItem, updateItem, archiveItem, adjustQty, workspaceTags, setItemCategories } from '../lib/api'
+import { fetchItem, updateItem, archiveItem, adjustQty, workspaceTags, setItemCategories, requestAnalysis } from '../lib/api'
 import type { ItemWithImages, Kind, FieldDef } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
 import { navigate } from '../lib/router'
@@ -22,6 +22,7 @@ export function ItemScreen({ id }: { id: string }) {
   const [saving, setSaving] = useState(false)
   const [allTags, setAllTags] = useState<string[]>([])
   const [extra, setExtra] = useState<string[]>([])
+  const [analyzing, setAnalyzing] = useState(false)
 
   useEffect(() => { void fetchItem(id).then(v => { setIt(v); setExtra((v?.item_categories ?? []).map(x => x.category_id).filter(c => c !== v?.category_id)) }) }, [id])
   useEffect(() => { if (it) void workspaceTags(it.workspace_id).then(setAllTags).catch(() => {}) }, [it?.workspace_id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -38,6 +39,27 @@ export function ItemScreen({ id }: { id: string }) {
     return out
   })()
   const patch = (p: Partial<ItemWithImages>) => { setIt(x => x ? { ...x, ...p } : x); setDirty(true) }
+
+  /** Sends the item back to OKI and waits for the answer, without touching what is already filled in. */
+  async function reanalyze() {
+    if (!it || analyzing) return
+    setAnalyzing(true)
+    const before = JSON.stringify(it.ai ?? null)
+    try {
+      await requestAnalysis(it)
+      for (let i = 0; i < 15; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        const fresh = await fetchItem(it.id)
+        if (fresh && JSON.stringify(fresh.ai ?? null) !== before) {
+          setIt(fresh)
+          setExtra((fresh.item_categories ?? []).map(x => x.category_id).filter(c => c !== fresh.category_id))
+          toast(fresh.ai?.tags?.length ? t('item.analyzed.tags', { n: fresh.ai.tags.length }) : t('item.analyzed'), 'ok')
+          return
+        }
+      }
+      toast(t('item.analyze.slow'))
+    } catch (e) { toast(String((e as Error).message), 'err') } finally { setAnalyzing(false) }
+  }
 
   async function save() {
     if (!it) return
@@ -62,6 +84,9 @@ export function ItemScreen({ id }: { id: string }) {
       <div className="screen-h">
         <button type="button" className="tz-btn quiet sm" onClick={() => history.length > 1 ? history.back() : navigate('/')}><ArrowRight size={16} style={{ transform: lang === 'en' ? 'rotate(180deg)' : undefined }} /> {t('item.back')}</button>
         <div className="row">
+          <button type="button" className="tz-btn quiet sm" disabled={analyzing} onClick={() => void reanalyze()} title={t('inbox.retry')}>
+            {analyzing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />} {t('inbox.retry')}
+          </button>
           <button type="button" className="tz-btn ghost sm" onClick={() => void archive()}><Archive size={16} /> {t('item.archive')}</button>
           <button type="button" className="tz-btn sm" disabled={!dirty || saving} onClick={() => void save()}>{saving ? <Loader2 size={16} className="spin" /> : t('item.save')}</button>
         </div>

@@ -165,6 +165,9 @@ export const he = {
   'item.archived': 'הועבר לארכיון',
   'item.images': 'תמונות',
   'item.ai': 'מה OKI ראה',
+  'item.analyzed': 'OKI הסתכל שוב.',
+  'item.analyzed.tags': 'OKI הסתכל שוב ומציע {n} תגיות.',
+  'item.analyze.slow': 'OKI עוד עובד. רענן בעוד רגע.',
 
   'settings.title': 'הגדרות',
   'settings.lang': 'שפה',
