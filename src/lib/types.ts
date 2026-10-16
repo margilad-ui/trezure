@@ -33,6 +33,7 @@ export interface AiResult {
   brand?: string | null
   category_id?: string | null
   attrs?: Record<string, string | number | null>
+  tags?: string[]
   qty_guess?: number | null
   unit?: string | null
   barcode_digits?: string | null

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, Archive, Loader2 } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { fetchItem, updateItem, archiveItem, adjustQty } from '../lib/api'
+import { fetchItem, updateItem, archiveItem, adjustQty, workspaceTags } from '../lib/api'
 import type { ItemWithImages, Kind } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
 import { navigate } from '../lib/router'
 import { LocationPicker } from '../components/LocationPicker'
+import { TagInput } from '../components/TagInput'
 import { toast } from '../components/Toast'
 import { UNITS } from '../lib/seed'
 
@@ -18,8 +19,10 @@ export function ItemScreen({ id }: { id: string }) {
   const [locPick, setLocPick] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [allTags, setAllTags] = useState<string[]>([])
 
   useEffect(() => { void fetchItem(id).then(setIt) }, [id])
+  useEffect(() => { if (it) void workspaceTags(it.workspace_id).then(setAllTags).catch(() => {}) }, [it?.workspace_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (it === undefined) return <div className="empty"><Loader2 className="spin" size={28} /></div>
   if (!it) return <div className="empty"><p>{t('common.error')}</p></div>
@@ -32,7 +35,7 @@ export function ItemScreen({ id }: { id: string }) {
     if (!it) return
     setSaving(true)
     try {
-      await updateItem(it.id, { name: it.name, brand: it.brand, category_id: it.category_id, location_id: it.location_id, unit: it.unit, kind: it.kind, attrs: it.attrs, notes: it.notes, min_qty: it.min_qty, stage: 'ready' })
+      await updateItem(it.id, { name: it.name, brand: it.brand, category_id: it.category_id, location_id: it.location_id, unit: it.unit, kind: it.kind, attrs: it.attrs, tags: it.tags, notes: it.notes, min_qty: it.min_qty, stage: 'ready' })
       setDirty(false); toast(t('item.saved'), 'ok')
     } catch (e) { toast(String((e as Error).message), 'err') } finally { setSaving(false) }
   }
@@ -96,6 +99,9 @@ export function ItemScreen({ id }: { id: string }) {
               <select className="tz-input" value={it.unit} onChange={e => patch({ unit: e.target.value })}>{UNITS.map(u => <option key={u} value={u}>{t(`unit.${u}` as Key)}</option>)}</select>
             </div>
             {it.kind === 'consumable' && <div className="field"><label>{t('stock.low')}</label><input className="tz-input" type="number" min={0} value={it.min_qty ?? ''} onChange={e => patch({ min_qty: e.target.value === '' ? null : Number(e.target.value) })} style={{ inlineSize: 100 }} /></div>}
+          </div>
+          <div className="field"><label>{t('field.tags')}</label>
+            <TagInput value={it.tags ?? []} suggestions={allTags} proposed={it.ai?.tags ?? []} onChange={tags => patch({ tags })} />
           </div>
           <div className="field"><label>{t('field.notes')}</label><textarea className="tz-input" rows={2} value={it.notes ?? ''} onChange={e => patch({ notes: e.target.value })} /></div>
           {it.ai && (

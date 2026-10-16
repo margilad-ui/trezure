@@ -59,6 +59,12 @@ Deno.serve(async (req) => {
   const { data: cats } = await admin.from('categories').select('id,name_he,name_en,parent_id,fields').eq('workspace_id', job.workspace_id)
   const categories = (cats ?? []) as Cat[]
 
+  // tags already in use, so OKI reuses them instead of inventing near duplicates
+  const { data: tagRows } = await admin.from('items').select('tags').eq('workspace_id', job.workspace_id).is('archived_at', null).limit(500)
+  const tagSet = new Set<string>()
+  for (const r of tagRows ?? []) for (const tg of ((r as { tags: string[] }).tags ?? [])) tagSet.add(tg)
+  const knownTags = Array.from(tagSet).slice(0, 80)
+
   // fetch the image and send it inline (base64), works for private buckets too
   const imgUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${img.path_original}`
   const imgRes = await fetch(imgUrl)
@@ -88,6 +94,7 @@ Return exactly this shape:
   "brand": string | null,          // brand or manufacturer if visible or obvious, else null
   "category_id": string | null,    // one of the ids above
   "attrs": { },                    // keys from that category's fields only. Values as strings or numbers. Omit unknown keys.
+  "tags": string[],                // 3 to 6 short Hebrew tags, one or two words each, no # sign. Cover what it is, what it is made of or used for, and the activity it belongs to. Reuse the existing tags listed below whenever one fits, rather than inventing a near duplicate.
   "qty_guess": number | null,      // how many units are visible, 1 if a single item
   "unit": "unit"|"pack"|"roll"|"m"|"cm"|"ml"|"sheet"|"set"|"pair"|"box"|null,
   "barcode_digits": string | null, // digits if a barcode is legible
@@ -96,6 +103,9 @@ Return exactly this shape:
   "field_confidence": { "name": number, "brand": number, "category_id": number },
   "needs_reshoot": null | { "angle": "front"|"side"|"back"|"detail", "reason_he": string, "reason_en": string }
 }
+Existing tags in this workspace, prefer these over new ones when they fit:
+${knownTags.length ? knownTags.join(', ') : '(none yet)'}
+
 Rules: Hebrew text in Hebrew letters. No exclamation marks. If the photo is blurry, too dark, or the label faces away so you cannot name it, set needs_reshoot with a one sentence reason and keep confidence under 0.4. Keep "name_he" short and concrete (e.g. "ויניל כסף מטאלי", "משחק קופסה Catan").`
 
   let aiText = ''
@@ -124,6 +134,9 @@ Rules: Hebrew text in Hebrew letters. No exclamation marks. If the photo is blur
 
   // sanity: category must exist
   if (ai.category_id && !categories.some(c => c.id === ai.category_id)) ai.category_id = null
+  if (Array.isArray(ai.tags)) {
+    ai.tags = (ai.tags as unknown[]).filter(x => typeof x === 'string').map(x => (x as string).replace(/^#+/, '').trim()).filter(Boolean).slice(0, 6)
+  }
   ai.model = MODEL
   const confidence = Number(ai.confidence ?? 0)
   const reshoot = ai.needs_reshoot && typeof ai.needs_reshoot === 'object'
@@ -136,6 +149,7 @@ Rules: Hebrew text in Hebrew letters. No exclamation marks. If the photo is blur
     if (ai.attrs && typeof ai.attrs === 'object') patch.attrs = { ...(ai.attrs as object), ...(item.attrs ?? {}) }
     if (ai.unit && typeof ai.unit === 'string' && item.unit === 'unit') patch.unit = ai.unit
     if (ai.barcode_digits && !item.barcode) patch.barcode = ai.barcode_digits
+    if (Array.isArray(ai.tags) && !(item.tags ?? []).length) patch.tags = ai.tags
   }
   await admin.from('items').update(patch).eq('id', item.id)
   await admin.from('image_jobs').update({ status: reshoot ? 'needs_reshoot' : 'done', result: ai, error: null }).eq('id', job.id)

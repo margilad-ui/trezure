@@ -19,12 +19,23 @@ export async function inboxCount(ws: string): Promise<number> {
   return count ?? 0
 }
 
+/** Distinct tags already used in this workspace, for autocomplete. */
+export async function workspaceTags(ws: string): Promise<string[]> {
+  const { data, error } = await supabase.from('items').select('tags')
+    .eq('workspace_id', ws).is('archived_at', null).not('tags', 'eq', '{}').limit(1000)
+  if (error) throw error
+  const s = new Set<string>()
+  for (const row of data ?? []) for (const tag of (row as { tags: string[] }).tags ?? []) s.add(tag)
+  return Array.from(s).sort()
+}
+
 export interface SearchFilters {
   q?: string
   category_id?: string | null
   location_id?: string | null
   kind?: Kind | null
   stock?: StockState | null
+  tag?: string | null
   inbox?: boolean
 }
 
@@ -35,6 +46,7 @@ export async function searchItems(ws: string, f: SearchFilters): Promise<ItemWit
   if (f.location_id) qb = qb.eq('location_id', f.location_id)
   if (f.kind) qb = qb.eq('kind', f.kind)
   if (f.stock) qb = qb.eq('stock_state', f.stock)
+  if (f.tag) qb = qb.contains('tags', [f.tag])
   const q = (f.q || '').trim()
   if (q) {
     const safe = q.replace(/[%_,()]/g, ' ').trim()

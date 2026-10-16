@@ -9,6 +9,7 @@ import { useT, type Key } from '../i18n'
 import { Logo } from '../components/Logo'
 import { OkiMark, Oki } from '../components/Oki'
 import { UNITS } from '../lib/seed'
+import { TagInput } from '../components/TagInput'
 import type { Kind } from '../lib/types'
 
 const SAMPLES = [
@@ -21,6 +22,7 @@ function Card({ s, i }: { s: typeof SAMPLES[0]; i: number }) {
   const { t } = useT()
   const [qty, setQty] = useState(s.qty)
   const [kind, setKind] = useState<Kind>(s.kind)
+  const [tags, setTags] = useState<string[]>(i === 0 ? ['מסגרות', 'יצירה'] : [])
   return (
     <div className={`tz-card card-item ${i === 0 ? 'focus' : ''}`}>
       <div className="ci-head">
@@ -54,6 +56,10 @@ function Card({ s, i }: { s: typeof SAMPLES[0]; i: number }) {
           <div className="field"><label>צבע</label><input className="tz-input" defaultValue="לבן" /></div>
           <div className="field"><label>רוחב (cm)</label><input className="tz-input" type="number" defaultValue={40} /></div>
         </>}
+        <div className="field wide">
+          <label>{t('field.tags')}</label>
+          <TagInput value={tags} onChange={setTags} suggestions={['מסגרות', 'יצירה', 'ריהוט', 'עיצוב', 'סדנאות', 'מתנות']} proposed={i === 0 ? ['ריהוט', 'עיצוב'] : []} />
+        </div>
       </div>
       <div className="card-actions">
         <div className="ca-row">

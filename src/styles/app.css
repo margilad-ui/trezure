@@ -203,6 +203,24 @@ input, select, textarea { font: inherit; }
 .zoom-bg { position: fixed; inset: 0; background: rgba(10,21,32,.92); z-index: 50; display: grid; place-items: center; cursor: zoom-out; }
 .zoom-bg img { max-inline-size: 96vw; max-block-size: 92dvh; border-radius: var(--r-lg); }
 
+/* tags */
+.taginput { position: relative; display: grid; gap: 8px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-block-size: 46px; padding: 6px 10px; border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--surface); cursor: text; }
+.tags:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-light); }
+.tag { display: inline-flex; align-items: center; gap: 4px; min-block-size: 36px; background: var(--teal-light); color: var(--teal-dark); border-radius: var(--r-pill); padding: 3px 5px 3px 12px; font-size: var(--fs-sm); font-weight: 600; max-inline-size: 100%; }
+.tag > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag button { display: inline-grid; place-items: center; inline-size: 30px; block-size: 30px; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; flex: none; }
+.tag button:hover { background: color-mix(in srgb, var(--teal) 22%, transparent); }
+.tag.ghost { background: transparent; border: 1.5px dashed var(--line); color: var(--dim); cursor: pointer; padding: 0 14px; min-block-size: 40px; gap: 5px; }
+.tag.ghost:hover { border-color: var(--teal); color: var(--teal-dark); background: var(--teal-xlight); }
+.tag-field { flex: 1 1 90px; min-inline-size: 90px; border: 0; outline: none; min-block-size: 36px; background: transparent; font-size: var(--fs-base); color: var(--ink); }
+.tag-menu { position: absolute; inset-inline: 0; inset-block-start: calc(100% - 4px); z-index: 15; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--r-md); box-shadow: var(--sh-float); display: grid; overflow: hidden; }
+.tag-menu button { min-block-size: 44px; padding: 0 14px; border: 0; background: var(--surface); text-align: start; cursor: pointer; font-weight: 600; }
+.tag-menu button:hover { background: var(--teal-xlight); }
+.tag-proposed { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-sm { display: inline-flex; align-items: center; background: var(--surface2); color: var(--dim); border-radius: var(--r-pill); padding: 2px 9px; font-size: var(--fs-label); font-weight: 700; }
+
 /* search */
 .search-bar { position: relative; }
 .search-bar .tz-input { padding-inline-start: 44px; min-block-size: 52px; font-size: var(--fs-lead); }

@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { Check, SkipForward, Trash2, RefreshCw, Loader2, AlertTriangle } from 'lucide-react'
 import { useT, dayLabel, timeLabel, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { fetchInbox, approveItem, archiveItem, updateItem, requestAnalysis } from '../lib/api'
+import { fetchInbox, approveItem, archiveItem, updateItem, requestAnalysis, workspaceTags } from '../lib/api'
 import type { ItemWithImages, Category, Kind, FieldDef } from '../lib/types'
 import { coverOf } from '../components/Pic'
 import { OkiMark, Oki } from '../components/Oki'
 import { LocationPicker } from '../components/LocationPicker'
+import { TagInput } from '../components/TagInput'
 import { toast } from '../components/Toast'
 import { play } from '../lib/sound'
 import { UNITS } from '../lib/seed'
@@ -16,6 +17,7 @@ import { publicUrl } from '../lib/supabase'
 type Draft = {
   name: string; brand: string; category_id: string; location_id: string
   qty: number; unit: string; kind: Kind; attrs: Record<string, string | number | null>
+  tags: string[]
 }
 
 function draftOf(it: ItemWithImages, cats: Category[]): Draft {
@@ -32,6 +34,7 @@ function draftOf(it: ItemWithImages, cats: Category[]): Draft {
     unit: it.unit && it.unit !== 'unit' ? it.unit : (ai.unit && (UNITS as readonly string[]).includes(ai.unit) ? ai.unit : cat?.default_unit ?? 'unit'),
     kind: (it.kind !== 'equipment' ? it.kind : cat?.default_kind ?? 'equipment') as Kind,
     attrs: { ...(ai.attrs ?? {}), ...(it.attrs ?? {}) },
+    tags: it.tags?.length ? it.tags : [],
   }
 }
 
@@ -56,6 +59,7 @@ export function Inbox() {
   const [zoom, setZoom] = useState<string | null>(null)
   const [locPick, setLocPick] = useState<{ ids: string[] } | null>(null)
   const [doneCount, setDoneCount] = useState(0)
+  const [knownTags, setKnownTags] = useState<string[]>([])
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const load = useCallback(async (quiet = false) => {
@@ -77,6 +81,7 @@ export function Inbox() {
   }, [workspace, categories, focus])
 
   useEffect(() => { void load() }, [load])
+  useEffect(() => { if (workspace) void workspaceTags(workspace.id).then(setKnownTags).catch(() => {}) }, [workspace])
   // poll while something is analyzing
   const anyPending = items.some(it => jobState(it) === 'pending')
   useEffect(() => {
@@ -94,6 +99,14 @@ export function Inbox() {
     }
     return Array.from(map.entries())
   }, [items])
+
+  const allTags = useMemo(() => {
+    const s = new Set<string>()
+    for (const it of items) it.tags?.forEach(x => s.add(x))
+    for (const d of Object.values(drafts)) d.tags?.forEach(x => s.add(x))
+    knownTags.forEach(x => s.add(x))
+    return Array.from(s).sort((a, b) => a.localeCompare(b, lang))
+  }, [items, drafts, knownTags, lang])
 
   const order = items.map(i => i.id)
   const setDraft = (id: string, patch: Partial<Draft>) => setDrafts(d => ({ ...d, [id]: { ...d[id], ...patch } }))
@@ -117,7 +130,7 @@ export function Inbox() {
       await approveItem(it, {
         name: d.name.trim() || null, brand: d.brand.trim() || null,
         category_id: d.category_id || null, location_id: d.location_id || null,
-        qty: d.qty, unit: d.unit, kind: d.kind, attrs: d.attrs,
+        qty: d.qty, unit: d.unit, kind: d.kind, attrs: d.attrs, tags: d.tags,
       })
       play('sorted')
       setDoneCount(c => c + 1)
@@ -204,6 +217,15 @@ export function Inbox() {
             {categories.map(c => <option key={c.id} value={c.id}>{c.parent_id ? '· ' : ''}{catName(c)}</option>)}
           </select>
           <button type="button" className="tz-btn quiet sm" onClick={() => setLocPick({ ids: Array.from(sel) })}>{t('inbox.bulk.location')}</button>
+          <input className="tz-input" style={{ inlineSize: 150, minBlockSize: 40 }} placeholder={t('inbox.bulk.tag')} aria-label={t('inbox.bulk.tag')}
+            onKeyDown={e => {
+              if (e.key !== 'Enter') return
+              e.preventDefault()
+              const tag = (e.target as HTMLInputElement).value.trim().replace(/^#+/, '')
+              if (!tag) return
+              setDrafts(d => { const n = { ...d }; sel.forEach(id => { const cur = n[id]?.tags ?? []; if (!cur.some(x => x.toLowerCase() === tag.toLowerCase())) n[id] = { ...n[id], tags: [...cur, tag] } }); return n })
+              ;(e.target as HTMLInputElement).value = ''
+            }} />
           <select className="tz-input" style={{ inlineSize: 'auto', minBlockSize: 36 }} defaultValue="" onChange={e => { if (e.target.value) void bulk({ kind: e.target.value as Kind }); e.target.value = '' }}>
             <option value="">{t('inbox.bulk.kind')}</option>
             {(['equipment', 'consumable', 'kit'] as Kind[]).map(k => <option key={k} value={k}>{t(`kind.${k}` as Key)}</option>)}
@@ -292,6 +314,10 @@ export function Inbox() {
                           )}
                         </div>
                       ))}
+                      <div className="field wide">
+                        <label htmlFor={`tags-${it.id}`}>{t('field.tags')}</label>
+                        <TagInput id={`tags-${it.id}`} value={d.tags} suggestions={allTags} proposed={ai.tags ?? []} onChange={tags => setDraft(it.id, { tags })} />
+                      </div>
                     </div>
                     <div className="card-actions">
                       <div className="ca-row">

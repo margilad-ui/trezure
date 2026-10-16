@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search as SearchIcon, LayoutGrid, List, Table2, Loader2 } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { searchItems, adjustQty, inboxCount, type SearchFilters } from '../lib/api'
+import { searchItems, adjustQty, inboxCount, workspaceTags, type SearchFilters } from '../lib/api'
 import type { ItemWithImages, Kind, StockState } from '../lib/types'
 import { coverOf } from '../components/Pic'
 import { Oki } from '../components/Oki'
@@ -25,6 +25,7 @@ export function Search() {
   const timer = useRef<number | undefined>(undefined)
   const lastCount = useRef<number | null>(null)
   const [waiting, setWaiting] = useState(0)
+  const [allTags, setAllTags] = useState<string[]>([])
 
   useEffect(() => { try { localStorage.setItem(LS_VIEW, view) } catch { /* ignore */ } }, [view])
 
@@ -32,6 +33,7 @@ export function Search() {
   useEffect(() => {
     if (!workspace) return
     void inboxCount(workspace.id).then(setWaiting).catch(() => {})
+    void workspaceTags(workspace.id).then(setAllTags).catch(() => {})
   }, [workspace, items])
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export function Search() {
   }
 
   const chip = (label: string, on: boolean, onClick: () => void) => <button type="button" className="chip-btn" aria-pressed={on} onClick={onClick}>{label}</button>
-  const noFilters = !q && !f.category_id && !f.location_id && !f.kind && !f.stock && !f.inbox
+  const noFilters = !q && !f.category_id && !f.location_id && !f.kind && !f.stock && !f.tag && !f.inbox
   const isEmptyWorkspace = items !== null && items.length === 0 && noFilters
 
   const stockBadge = (it: ItemWithImages) => it.stage === 'inbox' ? <span className="badge-stock inbox">{t('stage.inbox')}</span> : it.stock_state !== 'full' ? <span className={`badge-stock ${it.stock_state}`}>{t(`stock.${it.stock_state}` as Key)}</span> : null
@@ -85,6 +87,12 @@ export function Search() {
         </select>
         {(['equipment', 'consumable'] as Kind[]).map(k => chip(t(`kind.${k}` as Key), f.kind === k, () => setF(x => ({ ...x, kind: x.kind === k ? null : k }))))}
         {(['low', 'empty'] as StockState[]).map(s => chip(t(`stock.${s}` as Key), f.stock === s, () => setF(x => ({ ...x, stock: x.stock === s ? null : s }))))}
+        {allTags.length > 0 && (
+          <select className="chip-btn" value={f.tag ?? ''} onChange={e => setF(x => ({ ...x, tag: e.target.value || null }))} aria-label={t('field.tags')} style={{ appearance: 'auto' }}>
+            <option value="">{t('field.tags')}</option>
+            {allTags.map(tg => <option key={tg} value={tg}>{tg}</option>)}
+          </select>
+        )}
         {chip(waiting > 0 ? `${t('search.inbox')} ${waiting}` : t('search.inbox'), Boolean(f.inbox), () => setF(x => ({ ...x, inbox: !x.inbox })))}
         <span className="grow" />
         <div className="seg" style={{ flex: 'none' }}>
@@ -135,6 +143,7 @@ export function Search() {
                         {it.location_id && <span className="tz-loc" style={{ ['--c' as string]: locColor(it.location_id), fontSize: 'var(--fs-label)', padding: '2px 8px' }}><i aria-hidden="true" />{locLabel(it.location_id)}</span>}
                         {it.category_id && <span className="meta">{catName(catById(it.category_id))}</span>}
                         {stockBadge(it)}
+                        {it.tags?.slice(0, 3).map(tg => <span key={tg} className="tag-sm">{tg}</span>)}
                       </div>
                     </div>
                     <div className="qty-ctl" onClick={e => e.stopPropagation()}>
