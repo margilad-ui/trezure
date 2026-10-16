@@ -137,6 +137,10 @@ export const he = {
   'stock.empty': 'נגמר',
   'stage.inbox': 'בסידור',
 
+  'hello.line': 'היי, אני OKI. צלם מה שיש, אני אסדר.',
+  'hello.sub': 'בלי להקליד כלום: תמונה אחת לפריט, ואני מזהה, מציע שם, קטגוריה ותגיות.',
+  'hello.later': 'אחר כך',
+
   'search.title': 'חיפוש',
   'search.placeholder': 'מה אתה מחפש',
   'search.empty': 'אין פה כלום עדיין. צלם משהו.',

@@ -1,6 +1,6 @@
 import { useT } from '../i18n'
 import { Logo } from '../components/Logo'
-import { Oki } from '../components/Oki'
+import { OkiPhoto } from '../components/Oki'
 import { BASE } from '../lib/router'
 
 export const VERSION = '0.1.0'
@@ -11,7 +11,7 @@ export function About() {
     <section className="screen">
       <div className="screen-h"><h1>{t('about.title')}</h1></div>
       <div className="tz-card" style={{ display: 'grid', gap: 18, justifyItems: 'center', textAlign: 'center', padding: 32 }}>
-        <Oki size={160} />
+        <OkiPhoto size={160} />
         <Logo width={200} />
         <p className="tagline">{t('app.tagline')}</p>
         <p style={{ maxInlineSize: 520 }}>{t('about.body')}</p>

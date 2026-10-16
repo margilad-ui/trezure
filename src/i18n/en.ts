@@ -139,6 +139,10 @@ export const en: Record<Key, string> = {
   'stock.empty': 'Out',
   'stage.inbox': 'In sort',
 
+  'hello.line': 'Hi, I am OKI. Shoot what you have, I will sort it.',
+  'hello.sub': 'No typing: one photo per item, and I name it, pick a category and suggest tags.',
+  'hello.later': 'Later',
+
   'search.title': 'Search',
   'search.placeholder': 'What are you looking for',
   'search.empty': 'Nothing here yet. Shoot something.',

@@ -8,6 +8,7 @@ import { Check, SkipForward, Trash2, RefreshCw, Loader2, AlertTriangle, Search a
 import { useT, type Key } from '../i18n'
 import { Logo } from '../components/Logo'
 import { OkiMark, Oki } from '../components/Oki'
+import { OkiHello } from '../components/OkiHello'
 import { UNITS } from '../lib/seed'
 import { TagInput } from '../components/TagInput'
 import type { Kind } from '../lib/types'
@@ -173,8 +174,32 @@ export function DevUI() {
         </div>
       </div>
 
+      <H>OKI: קבלת פנים</H>
+      <div id="oki-hello"><OkiHello force /></div>
+
+      <H>OKI: הבעות</H>
+      <div className="row" id="oki-x" style={{ gap: 18, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {(['ok', 'thinking', 'unsure', 'proud', 'sleep'] as const).map(x => (
+          <figure key={x} style={{ display: 'grid', justifyItems: 'center', gap: 4 }}><Oki size={120} expression={x} /><figcaption className="mono" style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>{x}</figcaption></figure>
+        ))}
+      </div>
+      <H>OKI: תנוחות</H>
+      <div className="row" id="oki-p" style={{ gap: 18, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {(['idle', 'wave', 'point', 'search'] as const).map(p => (
+          <figure key={p} style={{ display: 'grid', justifyItems: 'center', gap: 4 }}><Oki size={120} pose={p} /><figcaption className="mono" style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>{p}</figcaption></figure>
+        ))}
+        <figure style={{ display: 'grid', justifyItems: 'center', gap: 4 }}><Oki size={120} pose="point" flip /><figcaption className="mono" style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)' }}>point flip</figcaption></figure>
+      </div>
+      <H>OKI: קטן, בבועה</H>
+      <div id="oki-small" style={{ display: 'grid', gap: 10, maxInlineSize: 520 }}>
+        <div className="oki-line"><Oki size={36} expression="thinking" /><p>{t('inbox.analyzing')}</p></div>
+        <div className="oki-line"><Oki size={36} expression="ok" /><p>{SAMPLES[0].oki}</p></div>
+        <div className="oki-line"><Oki size={36} expression="unsure" /><p>{t('inbox.oki.unsure')}</p></div>
+        <div className="oki-line warn"><Oki size={36} expression="unsure" /><p>{SAMPLES[1].oki}</p></div>
+      </div>
+
       <H>מצב ריק</H>
-      <div className="empty"><Oki size={140} className="oki" /><p style={{ fontSize: 'var(--fs-lead)', color: 'var(--ink)' }}>{t('search.empty')}</p><button className="tz-btn">{t('nav.capture')}</button></div>
+      <div className="empty"><Oki size={140} className="oki" pose="search" expression="unsure" /><p style={{ fontSize: 'var(--fs-lead)', color: 'var(--ink)' }}>{t('search.noresults')}</p><button className="tz-btn">{t('nav.capture')}</button></div>
 
       <H>שורת צילום</H>
       <div style={{ background: '#0a1520', borderRadius: 'var(--r-lg)', padding: 16 }}>

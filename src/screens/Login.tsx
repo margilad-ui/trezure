@@ -70,7 +70,7 @@ export function Login() {
   return (
     <div className="login">
       <div className="login-card">
-        <Oki size={110} className="oki-wave" />
+        <Oki size={110} className="oki-wave" pose="wave" />
         <Logo width={190} className="login-logo" />
         <p className="tagline">{t('app.tagline')}</p>
 

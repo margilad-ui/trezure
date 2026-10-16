@@ -1,0 +1,43 @@
+/* OKI motion. CSS only. The global prefers-reduced-motion rule in trezure.css stops all of it. */
+.oki { overflow: visible; }
+.oki .arm { transition: d var(--t-slow, 420ms) var(--ease, cubic-bezier(.2,.8,.2,1)); }
+.oki .mouth { transition: d var(--t-base, 240ms) var(--ease, cubic-bezier(.2,.8,.2,1)); }
+
+/* lids live above the eyes, closed from the top edge of the eye */
+.oki .lid { transform: scaleY(0); transform-origin: 50% 70.5px; }
+.oki .lidL { transform-origin: 78px 70.5px; }
+.oki .lidR { transform-origin: 122px 70.5px; }
+.oki.blink .lid { animation: oki-blink 170ms ease-in-out both; }
+@keyframes oki-blink { 0% { transform: scaleY(0) } 45% { transform: scaleY(1.02) } 100% { transform: scaleY(0) } }
+
+/* expressions */
+.oki .brows { display: none; }
+.oki.oki-x-unsure .brows { display: block; }
+.oki.oki-x-thinking .eye { transform: translate(3px, -4px); }
+.oki.oki-x-thinking .lidL { transform-origin: 81px 66.5px; }
+.oki.oki-x-thinking .lidR { transform-origin: 125px 66.5px; }
+.oki.oki-x-thinking .lid { transform: translate(3px, -4px) scaleY(0); }
+.oki.oki-x-thinking.blink .lid { animation-name: oki-blink-think; }
+@keyframes oki-blink-think { 0% { transform: translate(3px,-4px) scaleY(0) } 45% { transform: translate(3px,-4px) scaleY(1.02) } 100% { transform: translate(3px,-4px) scaleY(0) } }
+.oki.oki-x-thinking .eyes { animation: oki-ponder 3.2s ease-in-out infinite; }
+@keyframes oki-ponder { 0%, 55%, 100% { transform: translate(0,0) } 25%, 35% { transform: translate(-5px, 1px) } }
+.oki.oki-x-proud .sparks { animation: oki-spark 1.6s ease-in-out infinite; transform-origin: 100px 70px; }
+@keyframes oki-spark { 0%, 100% { opacity: .55; transform: scale(.92) } 50% { opacity: 1; transform: scale(1.06) } }
+.oki.oki-x-sleep .oki-all { animation: oki-breathe 4.4s ease-in-out infinite; transform-origin: 100px 140px; }
+@keyframes oki-breathe { 0%, 100% { transform: scale(1, 1) } 50% { transform: scale(1.015, .985) } }
+
+/* poses */
+.oki.float .oki-all { animation: oki-float 4.2s ease-in-out infinite; }
+@keyframes oki-float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
+.oki.oki-p-wave .arm4 { transform-origin: 126px 118px; animation: oki-wave 1.8s ease-in-out infinite; }
+@keyframes oki-wave { 0%, 100% { transform: rotate(0deg) } 20% { transform: rotate(-16deg) } 40% { transform: rotate(10deg) } 60% { transform: rotate(-14deg) } 80% { transform: rotate(6deg) } }
+.oki.oki-p-point .arm4 { transform-origin: 126px 120px; animation: oki-point 1.4s ease-in-out infinite; }
+@keyframes oki-point { 0%, 100% { transform: rotate(0deg) } 50% { transform: rotate(-5deg) } }
+.oki.oki-p-search .oki-head { transform-origin: 100px 120px; animation: oki-tilt 5s ease-in-out infinite; }
+@keyframes oki-tilt { 0%, 100% { transform: rotate(-5deg) } 50% { transform: rotate(5deg) } }
+.oki.oki-p-search .eyes { animation: oki-scan 5s ease-in-out infinite; }
+@keyframes oki-scan { 0%, 100% { transform: translate(-5px, 2px) } 50% { transform: translate(5px, 2px) } }
+
+/* entrance used by the first run greeting */
+.oki.enter { animation: oki-enter var(--t-slow, 420ms) var(--ease, cubic-bezier(.2,.8,.2,1)) both; }
+@keyframes oki-enter { from { opacity: 0; transform: scale(.8) translateY(8px) } to { opacity: 1; transform: none } }

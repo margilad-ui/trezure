@@ -20,7 +20,7 @@ export function Welcome() {
   return (
     <div className="login">
       <div className="login-card">
-        <Oki size={140} />
+        <Oki size={140} pose="wave" />
         <Logo width={160} className="login-logo" />
         <div className="tz-card">
           <h1 style={{ fontSize: 'var(--fs-h2)' }}>{t('welcome.title')}</h1>

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as RKey } from 'react'
-import { Check, SkipForward, Trash2, RefreshCw, Loader2, AlertTriangle } from 'lucide-react'
+import { Check, SkipForward, Trash2, RefreshCw } from 'lucide-react'
 import { useT, dayLabel, timeLabel, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
 import { fetchInbox, approveItem, archiveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories } from '../lib/api'
 import type { ItemWithImages, Category, Kind, FieldDef } from '../lib/types'
 import { coverOf } from '../components/Pic'
-import { OkiMark, Oki } from '../components/Oki'
+import { Oki } from '../components/Oki'
 import { LocationPicker } from '../components/LocationPicker'
 import { TagInput } from '../components/TagInput'
 import { CategoryField } from '../components/CategoryField'
@@ -197,7 +197,7 @@ export function Inbox() {
       <section className="screen">
         <div className="screen-h"><h1>{t('inbox.title')}</h1></div>
         <div className="empty">
-          <Oki size={140} className="oki" />
+          <Oki size={140} className="oki" expression={doneCount ? 'proud' : 'ok'} />
           <p style={{ fontSize: 'var(--fs-lead)', color: 'var(--ink)' }}>{doneCount ? t('inbox.alldone', { n: doneCount }) : t('inbox.empty')}</p>
           <a className="tz-btn" href={href('/capture')} onClick={onLink}>{t('nav.capture')}</a>
         </div>
@@ -219,7 +219,7 @@ export function Inbox() {
 
       {!hasKey && (
         <div className="oki-line warn tz-card" style={{ marginBlockEnd: 12 }}>
-          <OkiMark size={28} /><p>{t('inbox.nokey')} <a href={href('/settings')} onClick={onLink} style={{ fontWeight: 700 }}>{t('nav.settings')}</a></p>
+          <Oki size={36} expression="unsure" /><p>{t('inbox.nokey')} <a href={href('/settings')} onClick={onLink} style={{ fontWeight: 700 }}>{t('nav.settings')}</a></p>
         </div>
       )}
 
@@ -294,14 +294,14 @@ export function Inbox() {
                       <div className="grow">
                         {okiText === null && (
                           <div className="oki-line">
-                            <OkiMark size={26} />
+                            <Oki size={36} expression="sleep" />
                             <p className="dim">{t('inbox.waiting')}</p>
                             <button type="button" className="icon" style={{ inlineSize: 44, blockSize: 44 }} title={t('inbox.retry')} onClick={() => void retry(it)} aria-label={t('inbox.retry')}><RefreshCw size={16} /></button>
                           </div>
                         )}
                         {okiText !== null && (
                           <div className={`oki-line ${st === 'reshoot' || st === 'error' ? 'warn' : ''}`}>
-                            {st === 'pending' ? <Loader2 size={26} className="spin" style={{ color: 'var(--teal)' }} /> : st === 'reshoot' ? <AlertTriangle size={26} style={{ color: 'var(--warning)' }} /> : <OkiMark size={26} />}
+                            <Oki size={36} expression={st === 'pending' ? 'thinking' : st === 'reshoot' || st === 'error' ? 'unsure' : (st === 'done' && !ai.name_he) || low('name') ? 'unsure' : 'ok'} />
                             <p>{okiText}</p>
                             {st !== 'pending' && <button type="button" className="icon" style={{ inlineSize: 44, blockSize: 44 }} title={t('inbox.retry')} onClick={() => void retry(it)} aria-label={t('inbox.retry')}><RefreshCw size={16} /></button>}
                           </div>

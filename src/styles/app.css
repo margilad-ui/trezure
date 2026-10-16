@@ -75,6 +75,14 @@ input, select, textarea { font: inherit; }
 .login-err { color: var(--danger); font-size: var(--fs-sm); font-weight: 600; }
 .code-input { text-align: center; font-family: var(--font-mono); font-size: var(--fs-h2); letter-spacing: .3em; direction: ltr; }
 
+/* first run greeting */
+.oki-hello { position: relative; display: flex; gap: 16px; align-items: center; margin-block-end: 14px; padding: 18px 20px; background: linear-gradient(135deg, var(--teal-xlight), var(--surface)); animation: rise var(--t-slow) var(--ease) both; }
+.oki-hello-text { display: grid; gap: 4px; min-inline-size: 0; }
+.oki-hello-text .lead { font-size: var(--fs-lead); font-weight: 700; color: var(--ink); }
+.oki-hello-text .dim { font-size: var(--fs-sm); }
+.oki-hello-x { position: absolute; inset-block-start: 8px; inset-inline-end: 8px; inline-size: 36px; block-size: 36px; background: transparent; color: var(--dim); }
+@media (max-width: 480px) { .oki-hello { flex-direction: column; text-align: center; align-items: center; } .oki-hello-text { justify-items: center; } .oki-hello-text .row { justify-content: center; } }
+
 /* empty state */
 .empty { display: grid; justify-items: center; gap: 14px; text-align: center; padding: 48px 16px; color: var(--dim); }
 .empty .oki { inline-size: 140px; block-size: 140px; }
@@ -191,7 +199,7 @@ input, select, textarea { font: inherit; }
 }
 @media (min-width: 1400px) { .card-item .fields { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .oki-line { display: flex; gap: 10px; align-items: center; grid-column: 1 / -1; }
-.oki-line img, .oki-line svg { inline-size: 28px; block-size: 28px; flex: none; }
+.oki-line img, .oki-line svg { inline-size: 36px; block-size: 36px; flex: none; }
 .oki-line p { background: var(--surface2); border-radius: 4px var(--r-lg) var(--r-lg) var(--r-lg); padding: 8px 12px; font-size: var(--fs-sm); }
 .oki-line.warn p { background: color-mix(in srgb, var(--warning) 12%, white); }
 .bulkbar { position: sticky; inset-block-start: 8px; z-index: 10; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; }

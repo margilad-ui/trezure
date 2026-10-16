@@ -29,7 +29,7 @@ export function App() {
   // component gallery: no auth, no network, used for layout checks at every width
   if (route === '/dev/ui') return <DevUI />
 
-  if (!ready) return <div className="login"><Oki size={96} /></div>
+  if (!ready) return <div className="login"><Oki size={96} expression="thinking" /></div>
   if (!session) return <Login />
   if (!workspace) return <Welcome />
 

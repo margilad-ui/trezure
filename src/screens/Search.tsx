@@ -6,6 +6,7 @@ import { searchItems, adjustQty, inboxCount, workspaceTags, type SearchFilters }
 import type { ItemWithImages, Kind, StockState } from '../lib/types'
 import { coverOf } from '../components/Pic'
 import { Oki } from '../components/Oki'
+import { OkiHello } from '../components/OkiHello'
 import { href, onLink, navigate } from '../lib/router'
 import { play } from '../lib/sound'
 
@@ -72,6 +73,7 @@ export function Search() {
 
   return (
     <section className="screen">
+      <OkiHello />
       <div className="search-bar">
         <SearchIcon size={22} />
         <input className="tz-input" value={q} onChange={e => setQ(e.target.value)} placeholder={t('search.placeholder')} autoFocus={wide} enterKeyHint="search" aria-label={t('search.title')} />
@@ -105,7 +107,7 @@ export function Search() {
       {items === null ? <div className="empty"><Loader2 className="spin" size={28} /></div> :
         isEmptyWorkspace ? (
           <div className="empty">
-            <Oki size={140} className="oki" />
+            <Oki size={140} className="oki" pose={waiting > 0 ? 'point' : 'wave'} flip={waiting > 0} />
             <p style={{ fontSize: 'var(--fs-lead)', color: 'var(--ink)' }}>
               {waiting > 0 ? (waiting === 1 ? t('search.waiting.one') : t('search.waiting', { n: waiting })) : t('search.empty')}
             </p>
@@ -115,7 +117,7 @@ export function Search() {
             </div>
           </div>
         ) : items.length === 0 ? (
-          <div className="empty"><Oki size={120} className="oki" /><p>{t('search.noresults')}</p></div>
+          <div className="empty"><Oki size={120} className="oki" pose="search" expression="unsure" /><p>{t('search.noresults')}</p></div>
         ) : (
           <>
             <p className="meta" style={{ marginBlockStart: 10 }}>{items.length === 1 ? t('search.result') : t('search.results', { n: items.length })}{loading && <Loader2 size={14} className="spin" style={{ marginInlineStart: 8, verticalAlign: 'middle' }} />}</p>
