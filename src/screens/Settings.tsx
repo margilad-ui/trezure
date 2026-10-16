@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2, KeyRound, Check } from 'lucide-react'
+import { Loader2, KeyRound, Check, Lock } from 'lucide-react'
 import { useT, setLang } from '../i18n'
 import { useStore, refreshRefs } from '../lib/store'
 import { saveSecret } from '../lib/api'
@@ -14,6 +14,9 @@ export function Settings() {
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
   const [snd, setSnd] = useState<SoundPrefs>(getSoundPrefs())
+  const [pw1, setPw1] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
   const [wsName, setWsName] = useState(workspace?.name ?? '')
 
   async function saveKey() {
@@ -27,6 +30,18 @@ export function Settings() {
     const { error } = await supabase.from('workspaces').update({ name: wsName.trim() }).eq('id', workspace.id)
     if (error) toast(error.message, 'err'); else { toast(t('settings.saved'), 'ok'); location.reload() }
   }
+  async function savePassword() {
+    if (pw1.length < 8) { toast(t('settings.password.short'), 'err'); return }
+    if (pw1 !== pw2) { toast(t('settings.password.mismatch'), 'err'); return }
+    setPwBusy(true)
+    const { error } = await supabase.auth.updateUser({ password: pw1 })
+    setPwBusy(false)
+    if (error) { toast(error.message, 'err'); return }
+    setPw1(''); setPw2('')
+    try { localStorage.setItem('tz.login.mode', 'password') } catch { /* ignore */ }
+    toast(t('settings.password.saved'), 'ok', 4000)
+  }
+
   const toggle = (k: keyof SoundPrefs) => { const n = { ...snd, [k]: !snd[k] }; setSnd(n); setSoundPrefs(n) }
   const Switch = ({ k, label }: { k: keyof SoundPrefs; label: string }) => (
     <div className="setting-row"><span>{label}</span><button type="button" role="switch" aria-checked={snd[k]} className="switch" onClick={() => toggle(k)} aria-label={label} /></div>
@@ -55,6 +70,19 @@ export function Settings() {
             <input className="tz-input mono" type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)} placeholder={t('settings.key.placeholder')} dir="ltr" style={{ fontWeight: 400 }} />
             <button type="button" className="tz-btn" disabled={busy || key.trim().length < 20} onClick={() => void saveKey()}>{busy ? <Loader2 className="spin" size={18} /> : t('settings.key.save')}</button>
           </div>
+        </div>
+
+        <div className="tz-card stack" style={{ gap: 10 }}>
+          <div className="row"><Lock size={20} style={{ color: 'var(--teal)' }} /><strong>{t('settings.password')}</strong></div>
+          <p className="meta">{t('settings.password.hint')}</p>
+          <input className="tz-input" type="password" autoComplete="new-password" placeholder={t('settings.password.new')}
+            value={pw1} onChange={e => setPw1(e.target.value)} dir="ltr" aria-label={t('settings.password.new')} />
+          <input className="tz-input" type="password" autoComplete="new-password" placeholder={t('settings.password.again')}
+            value={pw2} onChange={e => setPw2(e.target.value)} dir="ltr" aria-label={t('settings.password.again')}
+            onKeyDown={e => { if (e.key === 'Enter') void savePassword() }} />
+          <button type="button" className="tz-btn" disabled={pwBusy || pw1.length < 8 || pw1 !== pw2} onClick={() => void savePassword()}>
+            {pwBusy ? <Loader2 className="spin" size={18} /> : t('settings.password.save')}
+          </button>
         </div>
 
         <div className="tz-card">

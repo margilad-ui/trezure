@@ -71,6 +71,7 @@ input, select, textarea { font: inherit; }
 .login-logo { inline-size: 200px; margin-inline: auto; }
 .tagline { color: var(--dim); font-size: var(--fs-lead); }
 .oki-wave { inline-size: 120px; block-size: 120px; margin-inline: auto; }
+.login-err { color: var(--danger); font-size: var(--fs-sm); font-weight: 600; }
 .code-input { text-align: center; font-family: var(--font-mono); font-size: var(--fs-h2); letter-spacing: .3em; direction: ltr; }
 
 /* empty state */
