@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { Check, SkipForward, Trash2, RefreshCw } from 'lucide-react'
 import { useT, dayLabel, timeLabel, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { fetchInbox, approveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories } from '../lib/api'
+import { fetchInbox, approveItem, unapproveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories } from '../lib/api'
 import type { ItemWithImages, Category, Kind, FieldDef } from '../lib/types'
 import { coverImage, Pic } from '../components/Pic'
 import { Oki } from '../components/Oki'
@@ -140,7 +140,10 @@ export function Inbox() {
       await setItemCategories(it.id, it.workspace_id, d.extra_category_ids)
       play('sorted')
       setDoneCount(c => c + 1)
-      if (remaining.length === 0) { play('complete'); toast(t('inbox.alldone', { n: doneCount + 1 }), 'ok', 3500) }
+      // a wrong Enter is one tap away from being undone
+      const undo = { label: t('undo'), run: () => { void unapproveItem(it).then(() => { setDoneCount(c => Math.max(0, c - 1)); void load(true) }).catch(() => {}) } }
+      if (remaining.length === 0) { play('complete'); toast(t('inbox.alldone', { n: doneCount + 1 }), 'ok', 3500, undo) }
+      else toast(t('inbox.approved'), 'ok', 2600, undo)
     } catch (e) {
       toast(String((e as Error).message || t('common.error')), 'err')
       void load(true)

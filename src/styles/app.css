@@ -302,7 +302,7 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 /* toast */
 .toasts { position: fixed; inset-inline: 0; inset-block-end: calc(var(--nav-h) + var(--safe-b) + 12px); display: grid; justify-items: center; gap: 8px; z-index: 60; pointer-events: none; padding-inline: 16px; }
 @media (min-width: 900px) { .toasts { inset-block-end: 24px; } }
-.toast { background: var(--ink); color: #fff; border-radius: var(--r-md); padding: 12px 16px; font-weight: 600; box-shadow: var(--sh-float); animation: rise var(--t-base) var(--ease); max-inline-size: 480px; }
+.toast { pointer-events: auto; background: var(--ink); color: #fff; border-radius: var(--r-md); padding: 12px 16px; font-weight: 600; box-shadow: var(--sh-float); animation: rise var(--t-base) var(--ease); max-inline-size: 480px; }
 .toast.ok { background: var(--success); }
 .toast.err { background: var(--danger); }
 @keyframes rise { from { translate: 0 12px; opacity: 0 } to { translate: 0; opacity: 1 } }
@@ -365,3 +365,5 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 .loc-card-pic { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm); object-fit: cover; background: var(--surface2); flex: none; display: grid; place-items: center; color: var(--c, var(--teal)); }
 .loc-n { font: 700 var(--fs-sm) var(--font-mono); min-inline-size: 34px; block-size: 28px; padding-inline: 8px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c, var(--teal)) 14%, var(--surface)); color: var(--ink); display: grid; place-items: center; flex: none; }
 .loc-sub { font-size: var(--fs-h3); margin-block: 20px 10px; }
+.toast { display: flex; align-items: center; gap: 12px; }
+.toast-act { background: none; border: 0; color: inherit; font: 700 var(--fs-sm) var(--font-he); text-decoration: underline; cursor: pointer; padding: 4px 2px; min-block-size: 32px; flex: none; }

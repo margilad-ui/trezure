@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Archive, Trash2, Loader2 } from 'lucide-react'
 import { Sheet } from './Sheet'
 import { useT } from '../i18n'
-import { archiveItem, deleteItem } from '../lib/api'
+import { archiveItem, unarchiveItem, deleteItem } from '../lib/api'
 import { toast } from './Toast'
 import type { ItemWithImages } from '../lib/types'
 
@@ -24,7 +24,8 @@ export function RemoveItem({ item, open, onClose, onDone }: { item: ItemWithImag
       if (mode === 'archive') await archiveItem(item)
       else await deleteItem(item)
       onDone(mode)
-      toast(t(mode === 'archive' ? 'item.archived' : 'item.deleted'), 'ok')
+      if (mode === 'archive') toast(t('item.archived'), 'ok', 2600, { label: t('undo'), run: () => { void unarchiveItem(item).catch(() => {}) } })
+      else toast(t('item.deleted'), 'ok')
       close()
     } catch (e) {
       toast(String((e as Error).message || t('common.error')), 'err')

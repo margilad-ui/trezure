@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Trash2, Loader2, RefreshCw, MoveRight, Copy, ImagePlus, Star } from 'lucide-react'
+import { ArrowRight, Trash2, Loader2, RefreshCw, MoveRight, Copy, ImagePlus, Star, Share2 } from 'lucide-react'
 import { useT, type Key } from '../i18n'
-import { useStore, catById, locLabel, locColor } from '../lib/store'
+import { useStore, catById, catColor, locLabel, locColor } from '../lib/store'
 import { fetchItem, updateItem, adjustQty, workspaceTags, setItemCategories, requestAnalysis, moveItem, duplicateItem, setCoverImage } from '../lib/api'
 import type { ItemWithImages, Kind, FieldDef } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
@@ -10,6 +10,7 @@ import { LocationPicker } from '../components/LocationPicker'
 import { Pic } from '../components/Pic'
 import { RemoveItem } from '../components/RemoveItem'
 import { History } from '../components/History'
+import { buildShareImage, shareImage } from '../lib/share'
 import { TagInput } from '../components/TagInput'
 import { CategoryField } from '../components/CategoryField'
 import { toast } from '../components/Toast'
@@ -30,6 +31,7 @@ export function ItemScreen({ id }: { id: string }) {
   const [removing, setRemoving] = useState(false)
   const [busyAct, setBusyAct] = useState(false)
   const [histKey, setHistKey] = useState(0)
+  const [sharing, setSharing] = useState(false)
 
   useEffect(() => { void fetchItem(id).then(v => { setIt(v); setExtra((v?.item_categories ?? []).map(x => x.category_id).filter(c => c !== v?.category_id)) }) }, [id])
   useEffect(() => { if (it) void workspaceTags(it.workspace_id).then(setAllTags).catch(() => {}) }, [it?.workspace_id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,6 +99,17 @@ export function ItemScreen({ id }: { id: string }) {
     catch (e) { toast(String((e as Error).message), 'err') }
   }
 
+  /** One branded square for WhatsApp. The only place a backdrop is burned into a file. */
+  async function share() {
+    if (!it || sharing) return
+    setSharing(true)
+    try {
+      const blob = await buildShareImage(it, catColor(it.category_id))
+      const how = await shareImage(blob, `${(it.name || 'item').replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 40)}.png`, it.name || 'TREZURE')
+      if (how === 'saved') toast(t('item.share.saved'), 'ok')
+    } catch (e) { toast(String((e as Error).message === 'no_image' ? t('item.share.noimg') : t('common.error')), 'err') } finally { setSharing(false) }
+  }
+
   async function bump(d: number) {
     if (!it) return
     try { const n = await adjustQty(it.id, d); setIt(x => x ? { ...x, qty: n } : x) } catch (e) { toast(String((e as Error).message), 'err') }
@@ -110,6 +123,7 @@ export function ItemScreen({ id }: { id: string }) {
           <button type="button" className="tz-btn quiet sm" disabled={analyzing} onClick={() => void reanalyze()} title={t('inbox.retry')}>
             {analyzing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />} {t('inbox.retry')}
           </button>
+          <button type="button" className="tz-btn quiet sm" disabled={sharing} onClick={() => void share()}>{sharing ? <Loader2 size={16} className="spin" /> : <Share2 size={16} />} {t('item.share')}</button>
           <button type="button" className="tz-btn quiet sm" disabled={busyAct} onClick={() => setLocPick('move')}><MoveRight size={16} /> {t('item.move')}</button>
           <button type="button" className="tz-btn quiet sm" disabled={busyAct} onClick={() => setLocPick('duplicate')}><Copy size={16} /> {t('item.duplicate')}</button>
           <button type="button" className="tz-btn ghost sm" onClick={() => setRemoving(true)}><Trash2 size={16} /> {t('item.remove')}</button>

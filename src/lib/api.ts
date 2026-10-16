@@ -137,6 +137,17 @@ export async function duplicateItem(item: ItemWithImages, locationId: string | n
   return id
 }
 
+/** Puts an approved item back in the sort queue. The mirror of approveItem, for undo. */
+export async function unapproveItem(item: Item) {
+  const { error } = await supabase.from('items').update({ stage: 'inbox' }).eq('id', item.id)
+  if (error) throw error
+}
+
+export async function unarchiveItem(item: Item) {
+  const { error } = await supabase.from('items').update({ archived_at: null }).eq('id', item.id)
+  if (error) throw error
+}
+
 export async function archiveItem(item: Item) {
   const { error } = await supabase.from('items').update({ archived_at: new Date().toISOString() }).eq('id', item.id)
   if (error) throw error
