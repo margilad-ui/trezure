@@ -107,7 +107,7 @@ export function Login() {
             <p className="dim" style={{ fontSize: 'var(--fs-sm)' }}>{t('login.sent')}</p>
             <label className="tz-label" htmlFor="code">{t('login.code')}</label>
             <input id="code" className="tz-input code-input" inputMode="numeric" autoComplete="one-time-code"
-              pattern="[0-9]*" maxLength={8} autoFocus value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} />
+              pattern="[0-9]*" maxLength={10} autoFocus value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} />
             <button className="tz-btn" type="submit" disabled={busy || code.trim().length < 6}>
               {busy ? <Loader2 className="spin" size={18} /> : <><ArrowRight size={18} style={{ transform: lang === 'en' ? 'rotate(180deg)' : undefined }} /> {t('login.verify')}</>}
             </button>
