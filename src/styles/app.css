@@ -335,3 +335,14 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 /* destructive button, used by the remove sheet */
 .tz-btn.danger { background: var(--danger); color: #fff; }
 .tz-btn.danger:hover { background: color-mix(in srgb, var(--danger) 86%, black); }
+
+/* item history */
+.history summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; color: var(--ink); list-style: none; min-block-size: 32px; }
+.history summary::-webkit-details-marker { display: none; }
+.history ol { list-style: none; display: grid; gap: 2px; margin-block-start: 10px; }
+.history li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-block-start: 1px solid var(--line); color: var(--dim); font-size: var(--fs-sm); }
+.history li:first-child { border-block-start: 0; }
+.history li svg { color: var(--teal); flex: none; }
+.history time { flex: none; }
+.item-hero .thumbs .thumb-add { inline-size: 64px; block-size: 64px; border-radius: var(--r-sm); border: 1.5px dashed var(--line); background: var(--surface2); color: var(--teal-dark); display: grid; place-items: center; cursor: pointer; flex: none; }
+.item-hero .thumbs .thumb-add:hover { border-color: var(--teal); background: var(--teal-xlight); }

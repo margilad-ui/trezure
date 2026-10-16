@@ -38,6 +38,13 @@ export function Capture() {
   const [recent, setRecent] = useState<Recent[]>([])
   const [lastShot, setLastShot] = useState<QueuedShot | null>(null)
   const [angleMode, setAngleMode] = useState(false)
+  // "+ angle" from an item page: /capture?item=<id>. Every shot here attaches to that item, not a new one.
+  const [target] = useState<{ id: string; name: string } | null>(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get('item')
+      return id ? { id, name: sessionStorage.getItem('tz.capture.name') || '' } : null
+    } catch { return null }
+  })
   const [online, setOnline] = useState(navigator.onLine)
 
   // the saved location must still exist
@@ -125,11 +132,11 @@ export function Capture() {
       const shot = file ? await squareFromFile(file) : await squareFromVideo(v!)
       vibrate(30); play('capture')
       setFlash(true); setTimeout(() => setFlash(false), 140)
-      const isAngle = Boolean(angleMode && lastShot)
+      const isAngle = Boolean(target) || Boolean(angleMode && lastShot)
       const queued = await enqueue({
         ws: workspace.id, blob: shot.blob, thumb: shot.thumb, width: shot.width, height: shot.height,
         location_id: loc, qty, angle: isAngle ? 'side' : 'front',
-        item_id: isAngle ? lastShot!.item_id : crypto.randomUUID(),
+        item_id: target ? target.id : isAngle ? lastShot!.item_id : crypto.randomUUID(),
       })
       setLastShot(queued)
       setAngleMode(false)
@@ -142,7 +149,7 @@ export function Capture() {
     } catch (e) {
       toast(String((e as Error).message || t('common.error')), 'err')
     } finally { setBusy(false) }
-  }, [workspace, loc, qty, angleMode, lastShot, t, fly])
+  }, [workspace, loc, qty, angleMode, lastShot, target, t, fly])
 
   // mark recents as uploaded when the queue drains
   useEffect(() => {
@@ -188,7 +195,7 @@ export function Capture() {
           <div className="grid" aria-hidden="true" />
           <div className={`flash ${flash ? 'on' : ''}`} aria-hidden="true" />
         </div>
-        <p className="capture-hint">{angleMode ? t('capture.hint.again') : t('capture.hint')}</p>
+        <p className="capture-hint">{target ? t('capture.forItem', { name: target.name }) : angleMode ? t('capture.hint.again') : t('capture.hint')}</p>
       </div>
 
       <div className="recent" ref={stripRef} aria-label={t('capture.recent')}>
@@ -202,10 +209,17 @@ export function Capture() {
       </div>
 
       <div className="capture-controls">
-        <button type="button" className="side-btn" aria-pressed={angleMode} onClick={() => lastShot && setAngleMode(a => !a)} disabled={!lastShot} style={{ opacity: lastShot ? 1 : .4 }}>
-          <ImagePlus size={24} />
-          <span>+ {t('capture.angle')}</span>
-        </button>
+        {target ? (
+          <button type="button" className="side-btn" onClick={() => navigate(`/item/${target.id}`)}>
+            <Check size={24} />
+            <span>{t('capture.forItem.done')}</span>
+          </button>
+        ) : (
+          <button type="button" className="side-btn" aria-pressed={angleMode} onClick={() => lastShot && setAngleMode(a => !a)} disabled={!lastShot} style={{ opacity: lastShot ? 1 : .4 }}>
+            <ImagePlus size={24} />
+            <span>+ {t('capture.angle')}</span>
+          </button>
+        )}
         <button type="button" className="shutter" aria-label={t('capture.title')} disabled={busy || camErr} onClick={() => void shoot()} />
         <button type="button" className="side-btn" onClick={() => setQtyOpen(true)}>
           <span className="big">×{qty}</span>

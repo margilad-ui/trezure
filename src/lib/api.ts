@@ -89,6 +89,54 @@ export async function approveItem(item: Item, patch: Partial<Item>) {
   await supabase.from('activity').insert({ workspace_id: item.workspace_id, item_id: item.id, action: 'create', diff: patch })
 }
 
+export interface ActivityRow { id: number; item_id: string | null; user_id: string | null; action: string; diff: Record<string, unknown> | null; created_at: string }
+
+/** The item's own timeline, newest first. */
+export async function fetchActivity(itemId: string, limit = 40): Promise<ActivityRow[]> {
+  const { data, error } = await supabase.from('activity').select('*').eq('item_id', itemId).order('created_at', { ascending: false }).limit(limit)
+  if (error) throw error
+  return (data ?? []) as ActivityRow[]
+}
+
+/** Explicit move, logged with where it came from so the history reads like a sentence. */
+export async function moveItem(item: Item, locationId: string) {
+  if (item.location_id === locationId) return
+  const { error } = await supabase.from('items').update({ location_id: locationId }).eq('id', item.id)
+  if (error) throw error
+  await supabase.from('activity').insert({ workspace_id: item.workspace_id, item_id: item.id, action: 'move', diff: { from: item.location_id, to: locationId } })
+}
+
+export async function setCoverImage(item: Item, imageId: string) {
+  const { error } = await supabase.from('items').update({ cover_image_id: imageId }).eq('id', item.id)
+  if (error) throw error
+}
+
+/**
+ * A second item just like this one, somewhere else, without shooting it again. The copy points at the same
+ * Storage files (the image rows are new, the paths are shared), so deleting one twin leaves the other intact:
+ * deleteItem only removes a file no other image row still references.
+ */
+export async function duplicateItem(item: ItemWithImages, locationId: string | null): Promise<string> {
+  const id = crypto.randomUUID()
+  const { error } = await supabase.from('items').insert({
+    id, workspace_id: item.workspace_id, name: item.name, brand: item.brand, category_id: item.category_id,
+    location_id: locationId ?? item.location_id, qty: 1, unit: item.unit, kind: item.kind, min_qty: item.min_qty,
+    condition: item.condition, barcode: item.barcode, tags: item.tags, attrs: item.attrs, notes: item.notes,
+    price: item.price, currency: item.currency, stage: 'ready', ai: item.ai,
+  })
+  if (error) throw error
+  const imgs = (item.item_images ?? []).slice().sort((a, b) => a.sort - b.sort)
+  if (imgs.length) {
+    const rows = imgs.map(im => ({ id: crypto.randomUUID(), workspace_id: item.workspace_id, item_id: id, path_original: im.path_original, path_clean: im.path_clean, path_thumb: im.path_thumb, source: im.source, angle: im.angle, width: im.width, height: im.height, sort: im.sort }))
+    const { error: e2 } = await supabase.from('item_images').insert(rows)
+    if (!e2) await supabase.from('items').update({ cover_image_id: rows[0].id }).eq('id', id)
+  }
+  const cats = (item.item_categories ?? []).map(c => c.category_id).filter(c => c !== item.category_id)
+  if (cats.length) await setItemCategories(id, item.workspace_id, cats)
+  await supabase.from('activity').insert({ workspace_id: item.workspace_id, item_id: id, action: 'duplicate', diff: { from: item.id } })
+  return id
+}
+
 export async function archiveItem(item: Item) {
   const { error } = await supabase.from('items').update({ archived_at: new Date().toISOString() }).eq('id', item.id)
   if (error) throw error
@@ -106,10 +154,23 @@ export async function deleteItem(item: ItemWithImages): Promise<void> {
     if (im.path_thumb) paths.push(im.path_thumb)
     if (im.path_clean) { paths.push(im.path_clean); paths.push(im.path_clean.replace(/-clean\.png$/, '-clean-t.png')) }
   }
-  if (paths.length) await supabase.storage.from('images').remove(paths).catch(() => {})
+  // a duplicate shares the same files: only remove what no other image row references
+  let removable = paths
+  if (paths.length) {
+    const ids = (item.item_images ?? []).map(im => im.id)
+    const { data: others } = await supabase.from('item_images').select('path_original,path_thumb,path_clean').eq('workspace_id', item.workspace_id).not('id', 'in', `(${ids.join(',')})`).in('path_original', (item.item_images ?? []).map(im => im.path_original))
+    const shared = new Set<string>()
+    for (const o of (others ?? []) as { path_original: string; path_thumb: string | null; path_clean: string | null }[]) {
+      shared.add(o.path_original)
+      if (o.path_thumb) shared.add(o.path_thumb)
+      if (o.path_clean) { shared.add(o.path_clean); shared.add(o.path_clean.replace(/-clean\.png$/, '-clean-t.png')) }
+    }
+    removable = paths.filter(p => !shared.has(p))
+  }
+  if (removable.length) await supabase.storage.from('images').remove(removable).catch(() => {})
   const { error } = await supabase.from('items').delete().eq('id', item.id)
   if (error) throw error
-  await supabase.from('activity').insert({ workspace_id: item.workspace_id, action: 'delete', diff: { item_id: item.id, name: item.name, files: paths.length } })
+  await supabase.from('activity').insert({ workspace_id: item.workspace_id, action: 'delete', diff: { item_id: item.id, name: item.name, files: removable.length } })
 }
 
 export async function adjustQty(id: string, delta: number): Promise<number> {

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Trash2, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowRight, Trash2, Loader2, RefreshCw, MoveRight, Copy, ImagePlus, Star } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, catById, locLabel, locColor } from '../lib/store'
-import { fetchItem, updateItem, adjustQty, workspaceTags, setItemCategories, requestAnalysis } from '../lib/api'
+import { fetchItem, updateItem, adjustQty, workspaceTags, setItemCategories, requestAnalysis, moveItem, duplicateItem, setCoverImage } from '../lib/api'
 import type { ItemWithImages, Kind, FieldDef } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
 import { navigate } from '../lib/router'
 import { LocationPicker } from '../components/LocationPicker'
 import { Pic } from '../components/Pic'
 import { RemoveItem } from '../components/RemoveItem'
+import { History } from '../components/History'
 import { TagInput } from '../components/TagInput'
 import { CategoryField } from '../components/CategoryField'
 import { toast } from '../components/Toast'
@@ -19,7 +20,7 @@ export function ItemScreen({ id }: { id: string }) {
   useStore()
   const [it, setIt] = useState<ItemWithImages | null | undefined>(undefined)
   const [cur, setCur] = useState(0)
-  const [locPick, setLocPick] = useState(false)
+  const [locPick, setLocPick] = useState<null | 'move' | 'duplicate'>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [allTags, setAllTags] = useState<string[]>([])
@@ -27,6 +28,8 @@ export function ItemScreen({ id }: { id: string }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [showOrig, setShowOrig] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [busyAct, setBusyAct] = useState(false)
+  const [histKey, setHistKey] = useState(0)
 
   useEffect(() => { void fetchItem(id).then(v => { setIt(v); setExtra((v?.item_categories ?? []).map(x => x.category_id).filter(c => c !== v?.category_id)) }) }, [id])
   useEffect(() => { if (it) void workspaceTags(it.workspace_id).then(setAllTags).catch(() => {}) }, [it?.workspace_id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -74,6 +77,26 @@ export function ItemScreen({ id }: { id: string }) {
       setDirty(false); toast(t('item.saved'), 'ok')
     } catch (e) { toast(String((e as Error).message), 'err') } finally { setSaving(false) }
   }
+  /** Explicit move: writes straight through and lands in the history, no save needed. */
+  async function move(locationId: string) {
+    if (!it) return
+    setBusyAct(true)
+    try { await moveItem(it, locationId); setIt(x => x ? { ...x, location_id: locationId } : x); setHistKey(k => k + 1); toast(t('item.moved'), 'ok') }
+    catch (e) { toast(String((e as Error).message), 'err') } finally { setBusyAct(false) }
+  }
+  /** The same item somewhere else, photos included, without shooting it again. */
+  async function duplicate(locationId: string) {
+    if (!it) return
+    setBusyAct(true)
+    try { const newId = await duplicateItem(it, locationId); toast(t('item.duplicated'), 'ok'); navigate(`/item/${newId}`) }
+    catch (e) { toast(String((e as Error).message), 'err') } finally { setBusyAct(false) }
+  }
+  async function makeCover(imageId: string) {
+    if (!it) return
+    try { await setCoverImage(it, imageId); setIt(x => x ? { ...x, cover_image_id: imageId } : x); toast(t('item.cover.set'), 'ok') }
+    catch (e) { toast(String((e as Error).message), 'err') }
+  }
+
   async function bump(d: number) {
     if (!it) return
     try { const n = await adjustQty(it.id, d); setIt(x => x ? { ...x, qty: n } : x) } catch (e) { toast(String((e as Error).message), 'err') }
@@ -87,6 +110,8 @@ export function ItemScreen({ id }: { id: string }) {
           <button type="button" className="tz-btn quiet sm" disabled={analyzing} onClick={() => void reanalyze()} title={t('inbox.retry')}>
             {analyzing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />} {t('inbox.retry')}
           </button>
+          <button type="button" className="tz-btn quiet sm" disabled={busyAct} onClick={() => setLocPick('move')}><MoveRight size={16} /> {t('item.move')}</button>
+          <button type="button" className="tz-btn quiet sm" disabled={busyAct} onClick={() => setLocPick('duplicate')}><Copy size={16} /> {t('item.duplicate')}</button>
           <button type="button" className="tz-btn ghost sm" onClick={() => setRemoving(true)}><Trash2 size={16} /> {t('item.remove')}</button>
           <button type="button" className="tz-btn sm" disabled={!dirty || saving} onClick={() => void save()}>{saving ? <Loader2 size={16} className="spin" /> : t('item.save')}</button>
         </div>
@@ -100,7 +125,15 @@ export function ItemScreen({ id }: { id: string }) {
               <button type="button" aria-pressed={showOrig} onClick={() => setShowOrig(true)}>{t('item.view.original')}</button>
             </div>
           )}
-          {imgs.length > 1 && <div className="thumbs">{imgs.map((im, i) => <img key={im.id} src={publicUrl('images', im.path_thumb || im.path_original)} alt="" className={i === cur ? 'on' : ''} onClick={() => setCur(i)} />)}</div>}
+          <div className="thumbs">
+            {imgs.map((im, i) => <img key={im.id} src={publicUrl('images', im.path_thumb || im.path_original)} alt="" className={i === cur ? 'on' : ''} onClick={() => setCur(i)} />)}
+            <button type="button" className="thumb-add" onClick={() => { try { sessionStorage.setItem('tz.capture.name', it.name ?? '') } catch { /* ignore */ } navigate(`/capture?item=${it.id}`) }} title={t('item.addangle')} aria-label={t('item.addangle')}><ImagePlus size={20} /></button>
+          </div>
+          {imgs[cur] && imgs.length > 1 && (
+            imgs[cur].id === it.cover_image_id
+              ? <p className="meta" style={{ textAlign: 'center' }}><Star size={13} style={{ verticalAlign: '-2px' }} /> {t('item.cover.set')}</p>
+              : <button type="button" className="tz-btn quiet sm" style={{ justifySelf: 'center' }} onClick={() => void makeCover(imgs[cur].id)}><Star size={15} /> {t('item.cover')}</button>
+          )}
         </div>
         <div className="tz-card stack" style={{ gap: 14 }}>
           <div className="field"><label>{t('field.name')}</label><input className="tz-input" value={it.name ?? ''} onChange={e => patch({ name: e.target.value })} style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }} /></div>
@@ -113,7 +146,7 @@ export function ItemScreen({ id }: { id: string }) {
               onExtra={ids => { setExtra(ids); setDirty(true) }}
             />
             <div className="field"><label>{t('field.location')}</label>
-              <button type="button" className="tz-input" style={{ textAlign: 'start', display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setLocPick(true)}>
+              <button type="button" className="tz-input" style={{ textAlign: 'start', display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setLocPick('move')}>
                 <i style={{ inlineSize: 10, blockSize: 10, borderRadius: '50%', background: locColor(it.location_id), flex: 'none' }} />
                 <span className="grow">{locLabel(it.location_id) || t('field.choose')}</span>
               </button>
@@ -153,7 +186,8 @@ export function ItemScreen({ id }: { id: string }) {
           )}
         </div>
       </div>
-      <LocationPicker open={locPick} onClose={() => setLocPick(false)} onPick={id => patch({ location_id: id })} />
+      <History key={histKey} itemId={it.id} createdAt={it.created_at} />
+      <LocationPicker open={locPick !== null} onClose={() => setLocPick(null)} onPick={id => { if (locPick === 'duplicate') void duplicate(id); else void move(id) }} />
       <RemoveItem item={it} open={removing} onClose={() => setRemoving(false)} onDone={() => navigate('/')} />
     </section>
   )
