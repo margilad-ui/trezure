@@ -73,7 +73,7 @@ const MOUTH: Record<OkiExpression, string> = {
   sleep: 'M95 106 q5 3 10 0',
 }
 
-export function Oki({ size = 120, expression = 'ok', pose = 'idle', live, float, flip, bust, color = 'var(--teal)', shade = 'var(--teal-dark)', ink = 'var(--ink)', className, title, style }: Props) {
+export function Oki({ size = 120, expression = 'ok', pose = 'idle', live, float, flip, bust, color = 'var(--oki-body)', shade = 'var(--oki-shade)', ink = 'var(--oki-ink)', className, title, style }: Props) {
   const doLive = live ?? size >= 40
   const doBust = bust ?? size < 48
   const doFloat = float ?? (size >= 80 && expression !== 'sleep' && (pose === 'idle' || pose === 'search'))
@@ -169,7 +169,7 @@ export function Oki({ size = 120, expression = 'ok', pose = 'idle', live, float,
 }
 
 /** Tiny single-color mark for counters and chips (unchanged from sprint 1). */
-export function OkiMark({ size = 24, color = 'var(--teal)', eye = '#fff', className }: { size?: number; color?: string; eye?: string; className?: string }) {
+export function OkiMark({ size = 24, color = 'var(--oki-body)', eye = '#fff', className }: { size?: number; color?: string; eye?: string; className?: string }) {
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} className={className} aria-hidden="true" style={{ inlineSize: size, blockSize: size, flex: 'none' }}>
       <ellipse cx="50" cy="40" rx="34" ry="32" fill={color} />

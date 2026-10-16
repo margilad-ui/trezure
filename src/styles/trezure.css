@@ -8,6 +8,35 @@
   --sh-card:0 1px 2px rgba(15,30,45,.06), 0 4px 14px rgba(15,30,45,.06);--sh-float:0 10px 30px rgba(15,30,45,.14);
   --t-fast:150ms;--t-base:240ms;--t-slow:420ms;--ease:cubic-bezier(.2,.8,.2,1);
   --font-he:'Assistant',sans-serif;--font-en-h:'Poppins','Assistant',sans-serif;--font-en:'Assistant',sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --toast-bg:#0F1E2D;--toast-fg:#FFFFFF;
+  --tint-a:11%;--tint-b:28%;--shadow-contact:rgba(15,30,45,.22);
+  --oki-body:#0F7B8A;--oki-shade:#0B5F6B;--oki-ink:#0F1E2D;
+  color-scheme: light;
+}
+/* dark: the same tokens redefined. The OS decides unless the person picked a side in settings. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  --bg:#0A161C;--surface:#102129;--surface2:#16303A;--line:#24454F;
+  --ink:#E9F2F4;--dim:#9FB6BE;--faint:#8AA4AD;
+  --teal:#2FAEBC;--teal-dark:#8BDAE3;--teal-light:#16414B;--teal-xlight:#122E37;
+  --success:#46BE86;--warning:#E0A458;--danger:#FF6F62;--kraft:#C9A571;
+  --sh-card:0 1px 2px rgba(0,0,0,.5), 0 4px 14px rgba(0,0,0,.4);--sh-float:0 10px 30px rgba(0,0,0,.6);
+  --toast-bg:#1D3C47;--toast-fg:#E9F2F4;
+  --tint-a:14%;--tint-b:34%;--shadow-contact:rgba(0,0,0,.55);
+  --oki-body:#2FAEBC;--oki-shade:#15707C;--oki-ink:#0B1A24;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0A161C;--surface:#102129;--surface2:#16303A;--line:#24454F;
+  --ink:#E9F2F4;--dim:#9FB6BE;--faint:#8AA4AD;
+  --teal:#2FAEBC;--teal-dark:#8BDAE3;--teal-light:#16414B;--teal-xlight:#122E37;
+  --success:#46BE86;--warning:#E0A458;--danger:#FF6F62;--kraft:#C9A571;
+  --sh-card:0 1px 2px rgba(0,0,0,.5), 0 4px 14px rgba(0,0,0,.4);--sh-float:0 10px 30px rgba(0,0,0,.6);
+  --toast-bg:#1D3C47;--toast-fg:#E9F2F4;
+  --tint-a:14%;--tint-b:34%;--shadow-contact:rgba(0,0,0,.55);
+  --oki-body:#2FAEBC;--oki-shade:#15707C;--oki-ink:#0B1A24;
+  color-scheme: dark;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{overflow-x:hidden}
@@ -22,7 +51,7 @@ a{color:var(--teal-dark);text-decoration:none}
 .tz-btn.ghost:hover{background:var(--teal-xlight)}
 .tz-btn.quiet{background:var(--surface2);color:var(--teal-dark)}
 .tz-chip{display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-pill);padding:4px 12px;font-size:var(--fs-sm);font-weight:600;background:var(--teal-light);color:var(--teal-dark)}
-.tz-loc{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:4px 12px 4px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--ink);background:color-mix(in srgb,var(--c) 16%,white)}
+.tz-loc{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:4px 12px 4px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--ink);background:color-mix(in srgb,var(--c) 16%,var(--surface))}
 .tz-loc i{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
 .tz-card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--sh-card);padding:16px}
 .tz-input{width:100%;min-height:44px;border:1.5px solid var(--line);border-radius:var(--r-md);padding:10px 14px;font:var(--fs-base) var(--font-he);color:var(--ink);background:var(--surface)}

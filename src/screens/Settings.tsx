@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, KeyRound, Check, Lock, Wand2 } from 'lucide-react'
-import { useT, setLang } from '../i18n'
+import { useT, setLang, type Key } from '../i18n'
 import { useStore, refreshRefs } from '../lib/store'
 import { saveSecret, cleanMissing } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { getSoundPrefs, setSoundPrefs, type SoundPrefs } from '../lib/sound'
+import { getTheme, setTheme, type Theme } from '../lib/theme'
 import { toast } from '../components/Toast'
 import { VERSION } from './About'
 
@@ -23,6 +24,7 @@ export function Settings() {
     catch (e) { toast(String((e as Error).message), 'err') } finally { setSweeping(false) }
   }
   const [snd, setSnd] = useState<SoundPrefs>(getSoundPrefs())
+  const [theme, setTh] = useState<Theme>(getTheme())
   const [pw1, setPw1] = useState('')
   const [pw2, setPw2] = useState('')
   const [pwBusy, setPwBusy] = useState(false)
@@ -84,6 +86,13 @@ export function Settings() {
         <div className="tz-card">
           <div className="setting-row"><span>{t('settings.lang')}</span>
             <div className="seg"><button type="button" aria-pressed={lang === 'he'} onClick={() => setLang('he')}>עברית</button><button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>English</button></div>
+          </div>
+          <div className="setting-row"><span>{t('settings.theme')}</span>
+            <div className="seg">
+              {(['system', 'light', 'dark'] as Theme[]).map(k => (
+                <button key={k} type="button" aria-pressed={theme === k} onClick={() => { setTh(k); setTheme(k) }}>{t(`settings.theme.${k}` as Key)}</button>
+              ))}
+            </div>
           </div>
           <div className="setting-row"><span>{t('settings.workspace')}</span>
             <div className="row"><input className="tz-input" value={wsName} onChange={e => setWsName(e.target.value)} style={{ inlineSize: 200 }} /><button type="button" className="tz-btn quiet sm" onClick={() => void saveName()} disabled={wsName === workspace?.name}>{t('item.save')}</button></div>
