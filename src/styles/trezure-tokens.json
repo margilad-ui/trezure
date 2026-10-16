@@ -1,0 +1,89 @@
+{
+  "name": "TREZURE",
+  "version": "1.0",
+  "updated": "2026-10-16",
+  "color": {
+    "bg": "#F4F8F9",
+    "surface": "#FFFFFF",
+    "surface2": "#EAF6F7",
+    "line": "#DCE4E8",
+    "ink": "#0F1E2D",
+    "dim": "#5A6B78",
+    "faint": "#66737F",
+    "teal": "#0F7B8A",
+    "tealDark": "#0B5F6B",
+    "tealLight": "#D6EEF0",
+    "tealXLight": "#EAF6F7",
+    "success": "#177249",
+    "warning": "#9A5411",
+    "danger": "#C7382E",
+    "kraft": "#C9A571"
+  },
+  "location": {
+    "red": "#E5484D",
+    "orange": "#F08A24",
+    "yellow": "#E0B400",
+    "green": "#3FA34D",
+    "teal": "#1EA5A0",
+    "blue": "#3B82F6",
+    "indigo": "#6366F1",
+    "purple": "#A855F7",
+    "pink": "#EC4899",
+    "brown": "#9A6B3F"
+  },
+  "font": {
+    "he": "Assistant",
+    "enHeading": "Poppins",
+    "enBody": "Assistant",
+    "mono": "JetBrains Mono"
+  },
+  "size": {
+    "label": 12,
+    "meta": 13,
+    "sm": 14,
+    "base": 16,
+    "lead": 18,
+    "h3": 20,
+    "h2": 24,
+    "h1": 30,
+    "display": 40
+  },
+  "radius": {
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "pill": 999
+  },
+  "space": [
+    4,
+    8,
+    12,
+    16,
+    24,
+    32,
+    48,
+    64
+  ],
+  "shadow": {
+    "card": "0 1px 2px rgba(15,30,45,.06), 0 4px 14px rgba(15,30,45,.06)",
+    "float": "0 10px 30px rgba(15,30,45,.14)"
+  },
+  "motion": {
+    "fast": "150ms",
+    "base": "240ms",
+    "slow": "420ms",
+    "ease": "cubic-bezier(.2,.8,.2,1)"
+  },
+  "sound": {
+    "capture": "sound/capture.mp3",
+    "found": "sound/found.mp3",
+    "sorted": "sound/sorted.mp3",
+    "question": "sound/question.mp3",
+    "lowStock": "sound/low-stock.mp3",
+    "open": "sound/open.mp3",
+    "complete": "sound/complete.mp3",
+    "okiYouGotIt": "sound/oki-you-got-it.mp3",
+    "okiOkayHe": "sound/oki-okay-he.mp3"
+  }
+}

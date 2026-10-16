@@ -1,0 +1,87 @@
+import { supabase } from './supabase'
+import type { Item, ItemWithImages, Kind, StockState } from './types'
+
+const ITEM_COLS = '*, item_images(*), image_jobs(id,status,error,type,updated_at)'
+
+export async function fetchInbox(ws: string): Promise<ItemWithImages[]> {
+  const { data, error } = await supabase.from('items').select(ITEM_COLS)
+    .eq('workspace_id', ws).eq('stage', 'inbox').is('archived_at', null)
+    .order('created_at', { ascending: false }).limit(300)
+  if (error) throw error
+  return (data ?? []) as unknown as ItemWithImages[]
+}
+
+export interface SearchFilters {
+  q?: string
+  category_id?: string | null
+  location_id?: string | null
+  kind?: Kind | null
+  stock?: StockState | null
+  inbox?: boolean
+}
+
+export async function searchItems(ws: string, f: SearchFilters): Promise<ItemWithImages[]> {
+  let qb = supabase.from('items').select('*, item_images(*)').eq('workspace_id', ws).is('archived_at', null)
+  if (f.inbox) qb = qb.eq('stage', 'inbox'); else qb = qb.eq('stage', 'ready')
+  if (f.category_id) qb = qb.eq('category_id', f.category_id)
+  if (f.location_id) qb = qb.eq('location_id', f.location_id)
+  if (f.kind) qb = qb.eq('kind', f.kind)
+  if (f.stock) qb = qb.eq('stock_state', f.stock)
+  const q = (f.q || '').trim()
+  if (q) {
+    const safe = q.replace(/[%_,()]/g, ' ').trim()
+    const words = safe.split(/\s+/).filter(Boolean)
+    if (words.length) {
+      // full text (prefix) OR ilike on name/brand, so partial Hebrew words still hit
+      const ts = words.map(w => `${w}:*`).join(' & ')
+      qb = qb.or(`search.wfts(simple).${ts},name.ilike.%${safe}%,brand.ilike.%${safe}%`)
+    }
+  }
+  const { data, error } = await qb.order('updated_at', { ascending: false }).limit(200)
+  if (error) throw error
+  return (data ?? []) as unknown as ItemWithImages[]
+}
+
+export async function fetchItem(id: string): Promise<ItemWithImages | null> {
+  const { data, error } = await supabase.from('items').select(ITEM_COLS).eq('id', id).maybeSingle()
+  if (error) throw error
+  return data as unknown as ItemWithImages | null
+}
+
+export async function updateItem(id: string, patch: Partial<Item>) {
+  const { error } = await supabase.from('items').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function approveItem(item: Item, patch: Partial<Item>) {
+  const { error } = await supabase.from('items').update({ ...patch, stage: 'ready' }).eq('id', item.id)
+  if (error) throw error
+  await supabase.from('activity').insert({ workspace_id: item.workspace_id, item_id: item.id, action: 'create', diff: patch })
+}
+
+export async function archiveItem(item: Item) {
+  const { error } = await supabase.from('items').update({ archived_at: new Date().toISOString() }).eq('id', item.id)
+  if (error) throw error
+  await supabase.from('activity').insert({ workspace_id: item.workspace_id, item_id: item.id, action: 'archive' })
+}
+
+export async function adjustQty(id: string, delta: number): Promise<number> {
+  const { data, error } = await supabase.rpc('adjust_qty', { item: id, delta })
+  if (error) throw error
+  return Number(data)
+}
+
+export async function requestAnalysis(item: ItemWithImages) {
+  const img = item.item_images?.slice().sort((a, b) => a.sort - b.sort)[0]
+  if (!img) return
+  const { data: job, error } = await supabase.from('image_jobs')
+    .insert({ workspace_id: item.workspace_id, item_id: item.id, image_id: img.id, type: 'analyze', status: 'pending' })
+    .select('id').single()
+  if (error) throw error
+  await supabase.functions.invoke('vision', { body: { job_id: job.id } })
+}
+
+export async function saveSecret(ws: string, key: string, value: string) {
+  const { error } = await supabase.rpc('set_secret', { ws, k: key, v: value })
+  if (error) throw error
+}
