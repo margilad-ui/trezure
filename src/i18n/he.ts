@@ -91,6 +91,8 @@ export const he = {
   'inbox.keys.arrows': 'כרטיס הבא',
   'inbox.keys.esc': 'דלג',
   'inbox.retry': 'נתח שוב',
+  'inbox.bulk.retry': 'נתח שוב',
+  'inbox.retrying': 'שולח {n} ל OKI',
 
   'field.name': 'שם',
   'field.brand': 'מותג',

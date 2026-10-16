@@ -93,6 +93,8 @@ export const en: Record<Key, string> = {
   'inbox.keys.arrows': 'next card',
   'inbox.keys.esc': 'skip',
   'inbox.retry': 'Analyze again',
+  'inbox.bulk.retry': 'Analyze again',
+  'inbox.retrying': 'Sending {n} to OKI',
 
   'field.name': 'Name',
   'field.brand': 'Brand',

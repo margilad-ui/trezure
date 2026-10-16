@@ -167,6 +167,16 @@ export function Inbox() {
     if (patch.location_id !== undefined) void load(true)
   }
 
+  async function bulkRetry() {
+    const ids = Array.from(sel)
+    toast(t('inbox.retrying', { n: ids.length }))
+    for (const id of ids) {
+      const it = items.find(x => x.id === id)
+      if (it) await retry(it).catch(() => {})
+    }
+    setSel(new Set())
+  }
+
   async function bulkApprove() {
     const ids = Array.from(sel)
     setSel(new Set())
@@ -235,6 +245,7 @@ export function Inbox() {
             {(['equipment', 'consumable', 'kit'] as Kind[]).map(k => <option key={k} value={k}>{t(`kind.${k}` as Key)}</option>)}
           </select>
           <span className="grow" />
+          <button type="button" className="tz-btn quiet sm" onClick={() => void bulkRetry()}><RefreshCw size={16} /> {t('inbox.bulk.retry')}</button>
           <button type="button" className="tz-btn ghost sm" onClick={() => setSel(new Set())}>{t('inbox.clear')}</button>
           <button type="button" className="tz-btn sm" onClick={() => void bulkApprove()}><Check size={16} /> {t('inbox.bulk.approve')}</button>
         </div>
@@ -281,11 +292,18 @@ export function Inbox() {
                     <div className="ci-head">
                       {cover ? <img className="pic" src={cover} alt="" onClick={() => setZoom(full)} /> : <div className="pic" />}
                       <div className="grow">
+                        {okiText === null && (
+                          <div className="oki-line">
+                            <OkiMark size={26} />
+                            <p className="dim">{t('inbox.waiting')}</p>
+                            <button type="button" className="icon" style={{ inlineSize: 44, blockSize: 44 }} title={t('inbox.retry')} onClick={() => void retry(it)} aria-label={t('inbox.retry')}><RefreshCw size={16} /></button>
+                          </div>
+                        )}
                         {okiText !== null && (
                           <div className={`oki-line ${st === 'reshoot' || st === 'error' ? 'warn' : ''}`}>
                             {st === 'pending' ? <Loader2 size={26} className="spin" style={{ color: 'var(--teal)' }} /> : st === 'reshoot' ? <AlertTriangle size={26} style={{ color: 'var(--warning)' }} /> : <OkiMark size={26} />}
                             <p>{okiText}</p>
-                            {(st === 'error' || st === 'none') && <button type="button" className="icon" style={{ inlineSize: 44, blockSize: 44 }} onClick={() => void retry(it)} aria-label={t('inbox.retry')}><RefreshCw size={16} /></button>}
+                            {st !== 'pending' && <button type="button" className="icon" style={{ inlineSize: 44, blockSize: 44 }} title={t('inbox.retry')} onClick={() => void retry(it)} aria-label={t('inbox.retry')}><RefreshCw size={16} /></button>}
                           </div>
                         )}
                         <label className="row" style={{ gap: 8, cursor: 'pointer', color: 'var(--dim)', fontSize: 'var(--fs-meta)', fontWeight: 600 }}>
