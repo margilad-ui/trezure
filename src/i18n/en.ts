@@ -70,6 +70,7 @@ export const en: Record<Key, string> = {
   'inbox.reshoot': 'Reshoot',
   'inbox.selected': '{n} selected',
   'inbox.selectall': 'Select all',
+  'inbox.select': 'Select',
   'inbox.clear': 'Clear',
   'inbox.bulk.category': 'Category for all',
   'inbox.bulk.location': 'Location for all',

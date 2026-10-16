@@ -14,6 +14,7 @@ import { ItemScreen } from './screens/Item'
 import { Settings } from './screens/Settings'
 import { About } from './screens/About'
 import { More } from './screens/More'
+import { DevUI } from './screens/DevUI'
 import { Oki } from './components/Oki'
 import { flush } from './lib/queue'
 
@@ -24,6 +25,9 @@ export function App() {
 
   useEffect(() => { applyDir(); void boot() }, [])
   useEffect(() => { if (session) void flush() }, [session])
+
+  // component gallery: no auth, no network, used for layout checks at every width
+  if (route === '/dev/ui') return <DevUI />
 
   if (!ready) return <div className="login"><Oki size={96} /></div>
   if (!session) return <Login />

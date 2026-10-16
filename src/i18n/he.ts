@@ -68,6 +68,7 @@ export const he = {
   'inbox.reshoot': 'לצלם שוב',
   'inbox.selected': '{n} נבחרו',
   'inbox.selectall': 'בחר הכל',
+  'inbox.select': 'בחר',
   'inbox.clear': 'נקה',
   'inbox.bulk.category': 'קטגוריה לכולם',
   'inbox.bulk.location': 'מיקום לכולם',

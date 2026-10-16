@@ -247,19 +247,24 @@ export function Inbox() {
                 else if (st === 'done') okiText = t('inbox.oki.unsure')
                 return (
                   <div key={it.id} ref={el => { cardRefs.current[it.id] = el }} className={`tz-card card-item ${focus === it.id ? 'focus' : ''}`} onKeyDown={e => onCardKey(e, it.id)} onFocusCapture={() => setFocus(it.id)}>
-                    <div className="stack" style={{ gap: 8, justifyItems: 'center' }}>
+                    <div className="ci-head">
                       {cover ? <img className="pic" src={cover} alt="" onClick={() => setZoom(full)} /> : <div className="pic" />}
-                      <input type="checkbox" className="check" checked={sel.has(it.id)} onChange={e => setSel(s => { const n = new Set(s); e.target.checked ? n.add(it.id) : n.delete(it.id); return n })} aria-label={t('inbox.selected', { n: 1 })} />
+                      <div className="grow">
+                        {okiText !== null && (
+                          <div className={`oki-line ${st === 'reshoot' || st === 'error' ? 'warn' : ''}`}>
+                            {st === 'pending' ? <Loader2 size={26} className="spin" style={{ color: 'var(--teal)' }} /> : st === 'reshoot' ? <AlertTriangle size={26} style={{ color: 'var(--warning)' }} /> : <OkiMark size={26} />}
+                            <p>{okiText}</p>
+                            {(st === 'error' || st === 'none') && <button type="button" className="icon" style={{ inlineSize: 44, blockSize: 44 }} onClick={() => void retry(it)} aria-label={t('inbox.retry')}><RefreshCw size={16} /></button>}
+                          </div>
+                        )}
+                        <label className="row" style={{ gap: 8, cursor: 'pointer', color: 'var(--dim)', fontSize: 'var(--fs-meta)', fontWeight: 600 }}>
+                          <input type="checkbox" className="check" checked={sel.has(it.id)} onChange={e => setSel(s => { const n = new Set(s); e.target.checked ? n.add(it.id) : n.delete(it.id); return n })} />
+                          {t('inbox.select')}
+                        </label>
+                      </div>
                     </div>
                     <div className="fields">
-                      {okiText !== null && (
-                        <div className={`oki-line ${st === 'reshoot' || st === 'error' ? 'warn' : ''}`}>
-                          {st === 'pending' ? <Loader2 size={28} className="spin" style={{ color: 'var(--teal)' }} /> : st === 'reshoot' ? <AlertTriangle size={28} style={{ color: 'var(--warning)' }} /> : <OkiMark size={28} />}
-                          <p>{okiText}</p>
-                          {(st === 'error' || st === 'none') && <button type="button" className="icon" style={{ inlineSize: 36, blockSize: 36 }} onClick={() => void retry(it)} aria-label={t('inbox.retry')}><RefreshCw size={16} /></button>}
-                        </div>
-                      )}
-                      <div className={`field ${low('name') ? 'low' : ''}`}><label>{t('field.name')}</label><input data-first className="tz-input" value={d.name} onChange={e => setDraft(it.id, { name: e.target.value })} /></div>
+                      <div className={`field wide-2 ${low('name') ? 'low' : ''}`}><label>{t('field.name')}</label><input data-first className="tz-input" value={d.name} onChange={e => setDraft(it.id, { name: e.target.value })} /></div>
                       <div className={`field ${low('brand') ? 'low' : ''}`}><label>{t('field.brand')}</label><input className="tz-input" value={d.brand} onChange={e => setDraft(it.id, { brand: e.target.value })} /></div>
                       <div className={`field ${low('category_id') ? 'low' : ''}`}><label>{t('field.category')}</label>
                         <select data-cat className="tz-input" value={d.category_id} onChange={e => { const c = catById(e.target.value); setDraft(it.id, { category_id: e.target.value, ...(c ? { unit: c.default_unit, kind: c.default_kind } : {}) }) }}>
@@ -287,25 +292,25 @@ export function Inbox() {
                           )}
                         </div>
                       ))}
-                      <div className="card-actions">
-                        <div className="row">
-                          <div className="qty-ctl">
-                            <button type="button" onClick={() => setDraft(it.id, { qty: Math.max(0, d.qty - 1) })} aria-label="-1">−</button>
-                            <input value={d.qty} inputMode="decimal" onChange={e => setDraft(it.id, { qty: Number(e.target.value) || 0 })} aria-label={t('field.qty')} />
-                            <button type="button" onClick={() => setDraft(it.id, { qty: d.qty + 1 })} aria-label="+1">+</button>
-                          </div>
-                          <select className="tz-input" style={{ inlineSize: 'auto', minBlockSize: 40 }} value={d.unit} onChange={e => setDraft(it.id, { unit: e.target.value })} aria-label={t('field.unit')}>
-                            {UNITS.map(u => <option key={u} value={u}>{t(`unit.${u}` as Key)}</option>)}
-                          </select>
-                          <div className="seg">
-                            {(['equipment', 'consumable'] as Kind[]).map(k => <button key={k} type="button" aria-pressed={d.kind === k} onClick={() => setDraft(it.id, { kind: k })}>{t(`kind.${k}` as Key)}</button>)}
-                          </div>
+                    </div>
+                    <div className="card-actions">
+                      <div className="ca-row">
+                        <div className="qty-ctl">
+                          <button type="button" onClick={() => setDraft(it.id, { qty: Math.max(0, d.qty - 1) })} aria-label="-1">&#8722;</button>
+                          <input value={d.qty} inputMode="decimal" onChange={e => setDraft(it.id, { qty: Number(e.target.value) || 0 })} aria-label={t('field.qty')} />
+                          <button type="button" onClick={() => setDraft(it.id, { qty: d.qty + 1 })} aria-label="+1">+</button>
                         </div>
-                        <div className="row">
-                          <button type="button" className="icon" aria-label={t('inbox.archive')} title={t('inbox.archive')} onClick={() => void archive(it.id)} style={{ color: 'var(--danger)' }}><Trash2 size={18} /></button>
-                          <button type="button" className="tz-btn ghost sm" onClick={() => moveFocus(1)}><SkipForward size={16} /> {t('inbox.skip')}</button>
-                          <button type="button" className="tz-btn sm" onClick={() => void approve(it.id)}><Check size={16} /> {t('inbox.approve')}</button>
+                        <select className="tz-input unit" value={d.unit} onChange={e => setDraft(it.id, { unit: e.target.value })} aria-label={t('field.unit')}>
+                          {UNITS.map(u => <option key={u} value={u}>{t(`unit.${u}` as Key)}</option>)}
+                        </select>
+                        <div className="seg">
+                          {(['equipment', 'consumable'] as Kind[]).map(k => <button key={k} type="button" aria-pressed={d.kind === k} onClick={() => setDraft(it.id, { kind: k })}>{t(`kind.${k}` as Key)}</button>)}
                         </div>
+                      </div>
+                      <div className="ca-end">
+                        <button type="button" className="icon" aria-label={t('inbox.archive')} title={t('inbox.archive')} onClick={() => void archive(it.id)} style={{ color: 'var(--danger)' }}><Trash2 size={18} /></button>
+                        <button type="button" className="tz-btn ghost" onClick={() => moveFocus(1)}><SkipForward size={16} /> {t('inbox.skip')}</button>
+                        <button type="button" className="tz-btn" onClick={() => void approve(it.id)}><Check size={18} /> {t('inbox.approve')}</button>
                       </div>
                     </div>
                   </div>
