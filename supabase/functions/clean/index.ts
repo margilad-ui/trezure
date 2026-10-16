@@ -23,16 +23,44 @@ const cors = {
 }
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'content-type': 'application/json' } })
 
-/** Replicate: run the model synchronously (Prefer: wait), poll if it is still running, return the output PNG bytes. */
+// model version, resolved once per instance (CLEAN_MODEL may be "owner/name" or "owner/name:version")
+let versionCache: { model: string; version: string } | null = null
+async function resolveVersion(apiKey: string): Promise<string> {
+  if (MODEL.includes(':')) return MODEL.split(':')[1]
+  if (versionCache?.model === MODEL) return versionCache.version
+  const r = await fetch(`https://api.replicate.com/v1/models/${MODEL}`, { headers: { Authorization: `Bearer ${apiKey}` } })
+  const d = await r.json()
+  const v = d?.latest_version?.id
+  if (!r.ok || !v) throw new Error('replicate_model_' + (d?.status ?? r.status) + ': ' + (d?.detail ?? 'no latest_version'))
+  versionCache = { model: MODEL, version: v }
+  return v
+}
+
+/** Replicate: run the model synchronously (Prefer: wait), poll if it is still running, return the output PNG bytes.
+ *  429 (low credit accounts get 6 requests a minute) is retried with the server's own wait, up to 8 times. */
 async function replicateCutout(apiKey: string, imageUrl: string): Promise<{ bytes: Uint8Array; meta: Record<string, unknown> }> {
   const t0 = Date.now()
+  const version = await resolveVersion(apiKey)
   const headers = { 'content-type': 'application/json', Authorization: `Bearer ${apiKey}`, Prefer: 'wait=60' }
-  const r = await fetch(`https://api.replicate.com/v1/models/${MODEL}/predictions`, {
-    method: 'POST', headers,
-    body: JSON.stringify({ input: { image: imageUrl, format: 'png', background_type: 'rgba', threshold: 0 } }),
-  })
-  let pred = await r.json()
-  if (!r.ok) throw new Error('replicate_' + (pred?.status ?? r.status) + ': ' + (pred?.detail ?? pred?.title ?? JSON.stringify(pred).slice(0, 200)))
+  let pred: any = null
+  let retries = 0
+  for (let attempt = 0; attempt < 9; attempt++) {
+    const r = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST', headers,
+      body: JSON.stringify({ version, input: { image: imageUrl, format: 'png', background_type: 'rgba', threshold: 0 } }),
+    })
+    pred = await r.json()
+    if (r.ok) break
+    if (r.status === 429 && attempt < 8) {
+      const ra = Number(r.headers.get('retry-after'))
+      const m = String(pred?.detail ?? '').match(/~?(\d+)s/)
+      const wait = (ra > 0 ? ra : m ? Number(m[1]) : 10) * 1000 + 1500 + Math.random() * 1500
+      retries++
+      await new Promise(res => setTimeout(res, Math.min(wait, 20000)))
+      continue
+    }
+    throw new Error('replicate_' + (pred?.status ?? r.status) + ': ' + (pred?.detail ?? pred?.title ?? JSON.stringify(pred).slice(0, 200)))
+  }
   // still running after the wait window: poll
   for (let i = 0; i < 40 && (pred.status === 'starting' || pred.status === 'processing'); i++) {
     await new Promise(res => setTimeout(res, 1500))
@@ -44,7 +72,7 @@ async function replicateCutout(apiKey: string, imageUrl: string): Promise<{ byte
   if (typeof out !== 'string') throw new Error('replicate_no_output')
   const o = await fetch(out)
   if (!o.ok) throw new Error('replicate_output_fetch_' + o.status)
-  return { bytes: new Uint8Array(await o.arrayBuffer()), meta: { provider: 'replicate', model: MODEL, prediction: pred.id, ms: Date.now() - t0, predict_time: pred.metrics?.predict_time } }
+  return { bytes: new Uint8Array(await o.arrayBuffer()), meta: { provider: 'replicate', model: MODEL, version, prediction: pred.id, ms: Date.now() - t0, retries, predict_time: pred.metrics?.predict_time } }
 }
 
 /** Crops a transparent PNG to its alpha bounding box plus a margin. Returns the input unchanged if nothing is opaque. */

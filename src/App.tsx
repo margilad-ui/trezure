@@ -17,14 +17,21 @@ import { More } from './screens/More'
 import { DevUI } from './screens/DevUI'
 import { Oki } from './components/Oki'
 import { flush } from './lib/queue'
+import { cleanMissing } from './lib/api'
 
 export function App() {
   const route = useRoute()
-  const { ready, session, workspace } = useStore()
+  const { ready, session, workspace, hasCleanKey } = useStore()
   const { t } = useT()
 
   useEffect(() => { applyDir(); void boot() }, [])
   useEffect(() => { if (session) void flush() }, [session])
+  // once per session: send any image still without a cutout to cleanup (retries failures from earlier runs)
+  useEffect(() => {
+    if (!workspace || !hasCleanKey) return
+    try { if (sessionStorage.getItem('tz.clean.swept')) return; sessionStorage.setItem('tz.clean.swept', '1') } catch { /* ignore */ }
+    void cleanMissing(workspace.id).catch(() => {})
+  }, [workspace, hasCleanKey])
 
   // component gallery: no auth, no network, used for layout checks at every width
   if (route === '/dev/ui') return <DevUI />

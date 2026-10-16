@@ -15,6 +15,13 @@ export function Settings() {
   const [busy, setBusy] = useState(false)
   const [ckey, setCkey] = useState('')
   const [cbusy, setCbusy] = useState(false)
+  const [sweeping, setSweeping] = useState(false)
+  async function sweep() {
+    if (!workspace) return
+    setSweeping(true)
+    try { const n = await cleanMissing(workspace.id); toast(n ? t('settings.ckey.backfill', { n }) : t('settings.ckey.nothing'), 'ok', 4000) }
+    catch (e) { toast(String((e as Error).message), 'err') } finally { setSweeping(false) }
+  }
   const [snd, setSnd] = useState<SoundPrefs>(getSoundPrefs())
   const [pw1, setPw1] = useState('')
   const [pw2, setPw2] = useState('')
@@ -104,6 +111,7 @@ export function Settings() {
             <input className="tz-input mono" type="password" autoComplete="off" value={ckey} onChange={e => setCkey(e.target.value)} placeholder={t('settings.ckey.placeholder')} dir="ltr" style={{ fontWeight: 400 }} />
             <button type="button" className="tz-btn" disabled={cbusy || ckey.trim().length < 20} onClick={() => void saveCleanKey()}>{cbusy ? <Loader2 className="spin" size={18} /> : t('settings.key.save')}</button>
           </div>
+          {hasCleanKey && <div className="row"><button type="button" className="tz-btn quiet sm" disabled={sweeping} onClick={() => void sweep()}>{sweeping ? <Loader2 className="spin" size={16} /> : <Wand2 size={16} />} {t('settings.ckey.sweep')}</button><span className="meta">{t('settings.ckey.sweep.hint')}</span></div>}
         </div>
 
         <div className="tz-card stack" style={{ gap: 10 }}>
