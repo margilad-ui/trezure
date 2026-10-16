@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Trash2, Loader2, RefreshCw, MoveRight, Copy, ImagePlus, Star, Share2 } from 'lucide-react'
+import { ArrowRight, Trash2, Loader2, RefreshCw, MoveRight, Copy, ImagePlus, Star, Share2, Tag } from 'lucide-react'
 import { useT, type Key } from '../i18n'
-import { useStore, catById, catColor, locLabel, locColor } from '../lib/store'
+import { useStore, catById, catColor, locById, locLabel, locColor } from '../lib/store'
 import { fetchItem, updateItem, adjustQty, workspaceTags, setItemCategories, requestAnalysis, moveItem, duplicateItem, setCoverImage } from '../lib/api'
 import type { ItemWithImages, Kind, FieldDef } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
@@ -11,6 +11,8 @@ import { Pic } from '../components/Pic'
 import { RemoveItem } from '../components/RemoveItem'
 import { History } from '../components/History'
 import { buildShareImage, shareImage } from '../lib/share'
+import { LabelSheet } from '../components/LabelSheet'
+import { labelUrl } from '../lib/label'
 import { TagInput } from '../components/TagInput'
 import { CategoryField } from '../components/CategoryField'
 import { toast } from '../components/Toast'
@@ -32,6 +34,7 @@ export function ItemScreen({ id }: { id: string }) {
   const [busyAct, setBusyAct] = useState(false)
   const [histKey, setHistKey] = useState(0)
   const [sharing, setSharing] = useState(false)
+  const [labelling, setLabelling] = useState(false)
 
   useEffect(() => { void fetchItem(id).then(v => { setIt(v); setExtra((v?.item_categories ?? []).map(x => x.category_id).filter(c => c !== v?.category_id)) }) }, [id])
   useEffect(() => { if (it) void workspaceTags(it.workspace_id).then(setAllTags).catch(() => {}) }, [it?.workspace_id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -123,6 +126,7 @@ export function ItemScreen({ id }: { id: string }) {
           <button type="button" className="tz-btn quiet sm" disabled={analyzing} onClick={() => void reanalyze()} title={t('inbox.retry')}>
             {analyzing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />} {t('inbox.retry')}
           </button>
+          <button type="button" className="tz-btn quiet sm" onClick={() => setLabelling(true)}><Tag size={16} /> {t('item.label')}</button>
           <button type="button" className="tz-btn quiet sm" disabled={sharing} onClick={() => void share()}>{sharing ? <Loader2 size={16} className="spin" /> : <Share2 size={16} />} {t('item.share')}</button>
           <button type="button" className="tz-btn quiet sm" disabled={busyAct} onClick={() => setLocPick('move')}><MoveRight size={16} /> {t('item.move')}</button>
           <button type="button" className="tz-btn quiet sm" disabled={busyAct} onClick={() => setLocPick('duplicate')}><Copy size={16} /> {t('item.duplicate')}</button>
@@ -202,6 +206,8 @@ export function ItemScreen({ id }: { id: string }) {
       </div>
       <History key={histKey} itemId={it.id} createdAt={it.created_at} />
       <LocationPicker open={locPick !== null} onClose={() => setLocPick(null)} onPick={id => { if (locPick === 'duplicate') void duplicate(id); else void move(id) }} />
+      <LabelSheet open={labelling} onClose={() => setLabelling(false)} kind="item"
+        data={{ name: it.name || t('remove.untitled'), code: (locLabel(it.location_id) ? locById(it.location_id)?.code + '.' : '') + it.id.slice(0, 4).toUpperCase(), url: labelUrl('item', it.id) }} />
       <RemoveItem item={it} open={removing} onClose={() => setRemoving(false)} onDone={() => navigate('/')} />
     </section>
   )

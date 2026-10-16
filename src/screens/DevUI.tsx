@@ -3,13 +3,14 @@
  * Exists so every control can be screenshot and measured at phone, tablet and desktop widths
  * before anything ships. Not linked from the app.
  */
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Check, SkipForward, Trash2, RefreshCw, Loader2, AlertTriangle, Search as SearchIcon, Camera, X, ImagePlus, Plus } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { Logo } from '../components/Logo'
 import { OkiMark, Oki } from '../components/Oki'
 import { OkiHello } from '../components/OkiHello'
 import { Pic } from '../components/Pic'
+import { drawLabel, type LabelSize } from '../lib/label'
 import { useStore } from '../lib/store'
 import { UNITS } from '../lib/seed'
 import { TagInput } from '../components/TagInput'
@@ -32,6 +33,33 @@ function PicDemo() {
       <div className="row" style={{ gap: 12 }}><Pic size={88} image={img} srcClean={DEMO_CUT} category={cats[0]} /><Pic size={64} image={img} srcClean={DEMO_CUT} category={cats[1]} /><Pic size={48} image={img} srcClean={DEMO_CUT} category={cats[2]} style={{ borderRadius: 8 }} /><Pic size={88} image={{ ...img, path_clean: null }} src={DEMO_CUT} category={cats[3]} /></div>
     </div>
   )
+}
+
+function LabelDemo() {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const samples: [LabelSize, Parameters<typeof drawLabel>[2], 'item' | 'location'][] = [
+      ['50x30', { name: 'ויניל Cricut כחול', code: 'OF.C3.S2.B07', url: 'https://margilad-ui.github.io/trezure/item/8f2k1' }, 'item'],
+      ['30x50', { name: 'ויניל Cricut כחול', code: 'OF.C3.S2.B07', url: 'https://margilad-ui.github.io/trezure/item/8f2k1' }, 'item'],
+      ['50x30', { name: 'ארון 3 · מדף 2', code: 'OF-03-02', url: 'https://margilad-ui.github.io/trezure/l/OF-03-02', parent: 'משרד' }, 'location'],
+      ['30x50', { name: 'קופסת חרוזים', code: 'OF-03-02-07', url: 'https://margilad-ui.github.io/trezure/l/OF-03-02-07', parent: 'ארון 3 · מדף 2' }, 'location'],
+      ['50x30', { name: 'מסגרת תמונה לבנה RIBBA עם זכוכית', code: 'HM.ST.B01', url: 'https://margilad-ui.github.io/trezure/item/abcd' }, 'item'],
+    ]
+    let dead = false
+    void (async () => {
+      const made: HTMLCanvasElement[] = []
+      for (const [size, data, kind] of samples) {
+        const c = await drawLabel(kind, size, data)
+        c.style.inlineSize = size === '50x30' ? '50mm' : '30mm'
+        c.style.blockSize = size === '50x30' ? '30mm' : '50mm'
+        c.className = 'label-canvas'
+        made.push(c)
+      }
+      if (!dead && box.current) box.current.replaceChildren(...made)
+    })()
+    return () => { dead = true }
+  }, [])
+  return <div id="label-demo" ref={box} className="row" style={{ gap: 18, alignItems: 'flex-start', background: 'var(--surface2)', padding: 18, borderRadius: 12 }} />
 }
 
 function Card({ s, i }: { s: typeof SAMPLES[0]; i: number }) {
@@ -188,6 +216,9 @@ export function DevUI() {
           <button type="button" role="switch" aria-checked="true" className="switch" aria-label="מתג" />
         </div>
       </div>
+
+      <H>תוויות, גליל 50×30</H>
+      <LabelDemo />
 
       <H>תמונה נקייה על גוון קטגוריה</H>
       <PicDemo />

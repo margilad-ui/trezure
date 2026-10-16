@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, Plus, Camera, Loader2, Package, MapPin, Pencil, Check, X } from 'lucide-react'
+import { ChevronLeft, Plus, Camera, Loader2, Package, MapPin, Pencil, Check, X, Tag } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, locById, refreshRefs } from '../lib/store'
 import { locationCounts, createLocation, updateLocation, uploadLocationPhoto, searchItems } from '../lib/api'
@@ -9,6 +9,8 @@ import { href, onLink, navigate } from '../lib/router'
 import { Sheet } from '../components/Sheet'
 import { Pic, coverImage } from '../components/Pic'
 import { Oki } from '../components/Oki'
+import { LabelSheet } from '../components/LabelSheet'
+import { labelUrl } from '../lib/label'
 import { toast } from '../components/Toast'
 import type { ItemWithImages, Location } from '../lib/types'
 
@@ -33,6 +35,7 @@ export function Locations({ id }: { id?: string }) {
   const [draft, setDraft] = useState<{ name: string; kind: string; color: string }>({ name: '', kind: 'room', color: '' })
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [labelling, setLabelling] = useState(false)
 
   const here = id ? locById(id) : undefined
   const children = useMemo(
@@ -112,6 +115,7 @@ export function Locations({ id }: { id?: string }) {
           )}
         </div>
         <div className="row">
+          {here && <button type="button" className="tz-btn quiet sm" onClick={() => setLabelling(true)}><Tag size={15} /> {t('loc.label')}</button>}
           {here && <button type="button" className="tz-btn quiet sm" onClick={() => setEditing(e => !e)}><Pencil size={15} /> {t('loc.edit')}</button>}
           <button type="button" className="tz-btn sm" onClick={() => { setNewKind(CHILD_OF[here?.kind ?? 'site'] ?? 'room'); setAdding(true) }}><Plus size={16} /> {here ? t('loc.addChild') : t('loc.addSite')}</button>
         </div>
@@ -187,6 +191,8 @@ export function Locations({ id }: { id?: string }) {
 
       {!here && children.length === 0 && <div className="empty"><Oki size={120} /><p>{t('loc.empty.root')}</p></div>}
 
+      <LabelSheet open={labelling} onClose={() => setLabelling(false)} kind="location"
+        data={here ? { name: here.name, code: here.code, url: labelUrl('location', here.code), parent: here.parent_id ? (locById(here.parent_id)?.name ?? '') : '' } : null} />
       <Sheet open={adding} onClose={() => setAdding(false)} title={here ? t('loc.addChild.in', { name: here.name }) : t('loc.addSite')}>
         <label className="tz-label" htmlFor="locname">{t('loc.name')}</label>
         <input id="locname" className="tz-input" value={newName} autoFocus onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void add() }} />
@@ -195,6 +201,28 @@ export function Locations({ id }: { id?: string }) {
         <button type="button" className="tz-btn" disabled={busy || !newName.trim()} onClick={() => void add()}>{busy ? <Loader2 className="spin" size={18} /> : <Plus size={18} />} {t('loc.create')}</button>
       </Sheet>
       {color === undefined && <Package size={0} aria-hidden="true" />}
+    </section>
+  )
+}
+
+/**
+ * Lands here from a scanned label: /l/<code>. Resolves the code to its place, or says plainly that this
+ * label does not belong to anything here, which is what a label from someone else's shelf would do.
+ */
+export function LocationByCode({ code }: { code: string }) {
+  const { t } = useT()
+  const { locations } = useStore()
+  const match = locations.find(l => l.code?.toLowerCase() === code.toLowerCase())
+  useEffect(() => { if (match) navigate(`/loc/${match.id}`, true) }, [match])
+  if (match) return null
+  if (!locations.length) return <div className="empty"><Loader2 className="spin" size={24} /></div>
+  return (
+    <section className="screen">
+      <div className="empty">
+        <Oki size={130} expression="unsure" pose="search" />
+        <p>{t('loc.badcode', { code })}</p>
+        <a className="tz-btn" href={href('/locations')} onClick={onLink}>{t('loc.all')}</a>
+      </div>
     </section>
   )
 }

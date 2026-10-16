@@ -366,3 +366,7 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 .loc-sub { font-size: var(--fs-h3); margin-block: 20px 10px; }
 .toast { display: flex; align-items: center; gap: 12px; }
 .toast-act { background: none; border: 0; color: inherit; font: 700 var(--fs-sm) var(--font-he); text-decoration: underline; cursor: pointer; padding: 4px 2px; min-block-size: 32px; flex: none; }
+
+/* label preview, shown at real printed size */
+.label-preview { display: grid; place-items: center; padding: 16px; background: var(--surface2); border-radius: var(--r-md); }
+.label-canvas { display: block; background: #fff; box-shadow: var(--sh-card); border-radius: 2px; }

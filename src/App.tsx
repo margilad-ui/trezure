@@ -14,7 +14,7 @@ import { ItemScreen } from './screens/Item'
 import { Settings } from './screens/Settings'
 import { About } from './screens/About'
 import { More } from './screens/More'
-import { Locations } from './screens/Locations'
+import { Locations, LocationByCode } from './screens/Locations'
 import { DevUI } from './screens/DevUI'
 import { Oki } from './components/Oki'
 import { flush } from './lib/queue'
@@ -49,6 +49,8 @@ export function App() {
   else if (route.startsWith('/item/')) page = <ItemScreen id={route.slice('/item/'.length)} />
   else if (route === '/locations') page = <Locations />
   else if (route.startsWith('/loc/')) page = <Locations id={route.slice('/loc/'.length)} />
+  // a scanned location label: /l/<code> resolves to the place it belongs to
+  else if (route.startsWith('/l/')) page = <LocationByCode code={decodeURIComponent(route.slice('/l/'.length))} />
   else if (route === '/settings') page = <Settings />
   else if (route === '/about') page = <About />
   else if (route === '/more') page = <More />
