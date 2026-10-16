@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Archive, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowRight, Trash2, Loader2, RefreshCw } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, catById, locLabel, locColor } from '../lib/store'
-import { fetchItem, updateItem, archiveItem, adjustQty, workspaceTags, setItemCategories, requestAnalysis } from '../lib/api'
+import { fetchItem, updateItem, adjustQty, workspaceTags, setItemCategories, requestAnalysis } from '../lib/api'
 import type { ItemWithImages, Kind, FieldDef } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
 import { navigate } from '../lib/router'
 import { LocationPicker } from '../components/LocationPicker'
 import { Pic } from '../components/Pic'
+import { RemoveItem } from '../components/RemoveItem'
 import { TagInput } from '../components/TagInput'
 import { CategoryField } from '../components/CategoryField'
 import { toast } from '../components/Toast'
@@ -25,6 +26,7 @@ export function ItemScreen({ id }: { id: string }) {
   const [extra, setExtra] = useState<string[]>([])
   const [analyzing, setAnalyzing] = useState(false)
   const [showOrig, setShowOrig] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   useEffect(() => { void fetchItem(id).then(v => { setIt(v); setExtra((v?.item_categories ?? []).map(x => x.category_id).filter(c => c !== v?.category_id)) }) }, [id])
   useEffect(() => { if (it) void workspaceTags(it.workspace_id).then(setAllTags).catch(() => {}) }, [it?.workspace_id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -76,10 +78,6 @@ export function ItemScreen({ id }: { id: string }) {
     if (!it) return
     try { const n = await adjustQty(it.id, d); setIt(x => x ? { ...x, qty: n } : x) } catch (e) { toast(String((e as Error).message), 'err') }
   }
-  async function archive() {
-    if (!it) return
-    await archiveItem(it); toast(t('item.archived'), 'ok'); navigate('/')
-  }
 
   return (
     <section className="screen">
@@ -89,7 +87,7 @@ export function ItemScreen({ id }: { id: string }) {
           <button type="button" className="tz-btn quiet sm" disabled={analyzing} onClick={() => void reanalyze()} title={t('inbox.retry')}>
             {analyzing ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />} {t('inbox.retry')}
           </button>
-          <button type="button" className="tz-btn ghost sm" onClick={() => void archive()}><Archive size={16} /> {t('item.archive')}</button>
+          <button type="button" className="tz-btn ghost sm" onClick={() => setRemoving(true)}><Trash2 size={16} /> {t('item.remove')}</button>
           <button type="button" className="tz-btn sm" disabled={!dirty || saving} onClick={() => void save()}>{saving ? <Loader2 size={16} className="spin" /> : t('item.save')}</button>
         </div>
       </div>
@@ -156,6 +154,7 @@ export function ItemScreen({ id }: { id: string }) {
         </div>
       </div>
       <LocationPicker open={locPick} onClose={() => setLocPick(false)} onPick={id => patch({ location_id: id })} />
+      <RemoveItem item={it} open={removing} onClose={() => setRemoving(false)} onDone={() => navigate('/')} />
     </section>
   )
 }

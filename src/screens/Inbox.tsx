@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { Check, SkipForward, Trash2, RefreshCw } from 'lucide-react'
 import { useT, dayLabel, timeLabel, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { fetchInbox, approveItem, archiveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories } from '../lib/api'
+import { fetchInbox, approveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories } from '../lib/api'
 import type { ItemWithImages, Category, Kind, FieldDef } from '../lib/types'
 import { coverImage, Pic } from '../components/Pic'
 import { Oki } from '../components/Oki'
+import { RemoveItem } from '../components/RemoveItem'
 import { LocationPicker } from '../components/LocationPicker'
 import { TagInput } from '../components/TagInput'
 import { CategoryField } from '../components/CategoryField'
@@ -59,6 +60,7 @@ export function Inbox() {
   const [loading, setLoading] = useState(true)
   const [focus, setFocus] = useState<string | null>(null)
   const [sel, setSel] = useState<Set<string>>(new Set())
+  const [removing, setRemoving] = useState<ItemWithImages | null>(null)
   const [zoom, setZoom] = useState<string | null>(null)
   const [locPick, setLocPick] = useState<{ ids: string[] } | null>(null)
   const [doneCount, setDoneCount] = useState(0)
@@ -145,11 +147,6 @@ export function Inbox() {
     }
   }
 
-  async function archive(id: string) {
-    const it = items.find(x => x.id === id); if (!it) return
-    setItems(list => list.filter(x => x.id !== id))
-    try { await archiveItem(it) } catch { void load(true) }
-  }
 
   async function retry(it: ItemWithImages) {
     try { await requestAnalysis(it); void load(true) } catch (e) { toast(String((e as Error).message), 'err') }
@@ -361,7 +358,7 @@ export function Inbox() {
                         </div>
                       </div>
                       <div className="ca-end">
-                        <button type="button" className="icon" aria-label={t('inbox.archive')} title={t('inbox.archive')} onClick={() => void archive(it.id)} style={{ color: 'var(--danger)' }}><Trash2 size={18} /></button>
+                        <button type="button" className="icon" aria-label={t('item.remove')} title={t('item.remove')} onClick={() => setRemoving(it)} style={{ color: 'var(--danger)' }}><Trash2 size={18} /></button>
                         <button type="button" className="tz-btn ghost" onClick={() => moveFocus(1)}><SkipForward size={16} /> {t('inbox.skip')}</button>
                         <button type="button" className="tz-btn" onClick={() => void approve(it.id)}><Check size={18} /> {t('inbox.approve')}</button>
                       </div>
@@ -375,6 +372,7 @@ export function Inbox() {
       })}
 
       {zoom && <div className="zoom-bg" onClick={() => setZoom(null)} role="presentation"><img src={zoom} alt="" /></div>}
+      <RemoveItem item={removing} open={Boolean(removing)} onClose={() => setRemoving(null)} onDone={() => { const id = removing?.id; setItems(list => list.filter(x => x.id !== id)); setSel(s => { const n = new Set(s); if (id) n.delete(id); return n }) }} />
       <LocationPicker open={Boolean(locPick)} onClose={() => setLocPick(null)} allowCreate onPick={id => { if (!locPick) return; if (locPick.ids.length === 1) { setDraft(locPick.ids[0], { location_id: id }); void updateItem(locPick.ids[0], { location_id: id }).then(() => load(true)) } else { void bulk({ location_id: id }) } }} />
     </section>
   )

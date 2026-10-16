@@ -95,6 +95,23 @@ export async function archiveItem(item: Item) {
   await supabase.from('activity').insert({ workspace_id: item.workspace_id, item_id: item.id, action: 'archive' })
 }
 
+/**
+ * Permanent delete: removes the image files from Storage, then the item row (item_images, image_jobs and
+ * item_categories cascade). The activity row stays as the audit trail. Needs the can_delete permission.
+ */
+export async function deleteItem(item: ItemWithImages): Promise<void> {
+  const paths: string[] = []
+  for (const im of item.item_images ?? []) {
+    paths.push(im.path_original)
+    if (im.path_thumb) paths.push(im.path_thumb)
+    if (im.path_clean) { paths.push(im.path_clean); paths.push(im.path_clean.replace(/-clean\.png$/, '-clean-t.png')) }
+  }
+  if (paths.length) await supabase.storage.from('images').remove(paths).catch(() => {})
+  const { error } = await supabase.from('items').delete().eq('id', item.id)
+  if (error) throw error
+  await supabase.from('activity').insert({ workspace_id: item.workspace_id, action: 'delete', diff: { item_id: item.id, name: item.name, files: paths.length } })
+}
+
 export async function adjustQty(id: string, delta: number): Promise<number> {
   const { data, error } = await supabase.rpc('adjust_qty', { item: id, delta })
   if (error) throw error

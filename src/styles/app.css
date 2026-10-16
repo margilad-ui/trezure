@@ -323,11 +323,15 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 .pic-box.empty { background: var(--surface2); }
 .pic-box img { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; display: block; }
 .pic-box .pic-orig { object-fit: cover; transition: opacity var(--t-slow) var(--ease); }
-.pic-box.has-clean { background: color-mix(in oklab, var(--cat, #9CA3AF) 7%, var(--surface)); }
+.pic-box.has-clean { background: linear-gradient(180deg, color-mix(in oklab, var(--cat, #9CA3AF) 5%, var(--surface)) 0%, color-mix(in oklab, var(--cat, #9CA3AF) 18%, var(--surface)) 100%); }
 .pic-box.has-clean::before { content: ''; position: absolute; inset-inline: 22%; inset-block-end: 9%; block-size: 6%; border-radius: 50%; background: rgba(15,30,45,.22); filter: blur(6px); opacity: 0; transition: opacity var(--t-slow) var(--ease); z-index: 1; }
 .pic-box .pic-clean { object-fit: contain; padding: 8%; z-index: 2; opacity: 0; transform: scale(.97); transition: opacity var(--t-slow) var(--ease), transform var(--t-slow) var(--ease); }
 .pic-box.clean-ready .pic-clean { opacity: 1; transform: none; }
 .pic-box.clean-ready .pic-orig { opacity: 0; }
 .pic-box.clean-ready::before { opacity: 1; }
 .pic-box.clean-ready .pic-orig { visibility: hidden; transition-delay: 0s; }
-@media (prefers-color-scheme: dark) { .pic-box.has-clean { background: color-mix(in oklab, var(--cat, #9CA3AF) 10%, var(--surface)); } }
+@media (prefers-color-scheme: dark) { .pic-box.has-clean { background: linear-gradient(180deg, color-mix(in oklab, var(--cat, #9CA3AF) 8%, var(--surface)) 0%, color-mix(in oklab, var(--cat, #9CA3AF) 24%, var(--surface)) 100%); } }
+
+/* destructive button, used by the remove sheet */
+.tz-btn.danger { background: var(--danger); color: #fff; }
+.tz-btn.danger:hover { background: color-mix(in srgb, var(--danger) 86%, black); }
