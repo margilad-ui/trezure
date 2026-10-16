@@ -1,8 +1,8 @@
 // TREZURE · clean
 // Input: { job_id } for an image_jobs row of type 'clean'. Loads the original from Storage, asks the
 // segmentation provider for a transparent cutout (PNG with alpha), trims it to the alpha bounding box
-// with a small margin so every item later sits in the same proportion, uploads `<img>-clean.png` and
-// writes item_images.path_clean. The original is never touched. Any failure marks the job 'error' and
+// with a small margin so every item later sits in the same proportion, uploads `<img>-clean.png` plus a
+// 480px `<img>-clean-t.png` for lists, and writes item_images.path_clean (the thumb path is by convention). The original is never touched. Any failure marks the job 'error' and
 // leaves the item exactly as it was; the app keeps showing the original.
 //
 // Provider is one env var away (CLEAN_PROVIDER). Today: 'replicate' with 851-labs/background-remover
@@ -101,6 +101,15 @@ async function trimToAlpha(png: Uint8Array, margin = 0.03): Promise<{ bytes: Uin
   return { bytes, w: cropped.width, h: cropped.height, trimmed: true }
 }
 
+/** 480px (longest side) PNG thumb of a cutout, for lists and grids. */
+async function thumbOf(png: Uint8Array, max = 480): Promise<Uint8Array> {
+  const img = await Image.decode(png)
+  const s = Math.min(1, max / Math.max(img.width, img.height))
+  if (s < 1) img.resize(Math.round(img.width * s), Math.round(img.height * s))
+  return await img.encode(6)
+}
+const thumbPath = (cleanPath: string) => cleanPath.replace(/-clean\.png$/, '-clean-t.png')
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'method' }, 405)
@@ -134,7 +143,23 @@ Deno.serve(async (req) => {
 
   const { data: img } = await admin.from('item_images').select('*').eq('id', job.image_id).maybeSingle()
   if (!img) return fail('no_image')
-  if (img.path_clean) { await admin.from('image_jobs').update({ status: 'done', result: { skipped: 'already_clean' } }).eq('id', job.id); return json({ ok: true, status: 'done' }) }
+  if (img.path_clean) {
+    // already cut: only make sure the thumb exists
+    const tp = thumbPath(img.path_clean)
+    const probe = await fetch(`${SUPABASE_URL}/storage/v1/object/public/images/${tp}`, { method: 'HEAD' })
+    if (!probe.ok) {
+      const full = await fetch(`${SUPABASE_URL}/storage/v1/object/public/images/${img.path_clean}`)
+      if (full.ok) {
+        const t = await thumbOf(new Uint8Array(await full.arrayBuffer()))
+        await admin.storage.from('images').upload(tp, t, { contentType: 'image/png', upsert: true, cacheControl: '31536000' })
+      }
+    }
+    await admin.from('image_jobs').update({ status: 'done', result: { skipped: 'already_clean', thumb: !probe.ok ? 'made' : 'exists' } }).eq('id', job.id)
+    return json({ ok: true, status: 'done' })
+  }
+  // another clean job for this image is in flight (two clients swept at once): do not pay twice
+  const { data: inflight } = await admin.from('image_jobs').select('id').eq('image_id', img.id).eq('type', 'clean').eq('status', 'running').neq('id', job.id).gte('updated_at', new Date(Date.now() - 120_000).toISOString()).limit(1)
+  if (inflight && inflight.length) { await admin.from('image_jobs').update({ status: 'done', result: { skipped: 'duplicate' } }).eq('id', job.id); return json({ ok: true, status: 'done', skipped: 'duplicate' }) }
 
   const imgUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${img.path_original}`
   let cut: { bytes: Uint8Array; meta: Record<string, unknown> }
@@ -150,10 +175,16 @@ Deno.serve(async (req) => {
   const cleanPath = img.path_original.replace(/\.(webp|jpe?g|png)$/i, '') + '-clean.png'
   const up = await admin.storage.from('images').upload(cleanPath, trimmed.bytes, { contentType: 'image/png', upsert: true, cacheControl: '31536000' })
   if (up.error) return fail('upload', up.error.message)
+  let thumbBytes = 0
+  try {
+    const t = await thumbOf(trimmed.bytes)
+    const ut = await admin.storage.from('images').upload(thumbPath(cleanPath), t, { contentType: 'image/png', upsert: true, cacheControl: '31536000' })
+    if (!ut.error) thumbBytes = t.byteLength
+  } catch { /* the full cutout still works without a thumb */ }
 
   const { error: e1 } = await admin.from('item_images').update({ path_clean: cleanPath }).eq('id', img.id)
   if (e1) return fail('db', e1.message)
-  const result = { ...cut.meta, trimmed: trimmed.trimmed, clean_w: trimmed.w, clean_h: trimmed.h, bytes: trimmed.bytes.byteLength }
+  const result = { ...cut.meta, trimmed: trimmed.trimmed, clean_w: trimmed.w, clean_h: trimmed.h, bytes: trimmed.bytes.byteLength, thumb_bytes: thumbBytes }
   await admin.from('image_jobs').update({ status: 'done', result, error: null }).eq('id', job.id)
   return json({ ok: true, status: 'done', path_clean: cleanPath, result })
 })

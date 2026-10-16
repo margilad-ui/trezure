@@ -44,7 +44,10 @@ type Props = {
  * The backdrop is composed here at display time; nothing is baked into the file.
  */
 export function Pic({ image, src, srcClean, category, mode = 'clean', thumb = true, alt = '', className, onClick, size, style }: Props) {
-  const clean = mode !== 'clean' ? '' : srcClean ? srcClean : image?.path_clean ? publicUrl('images', image.path_clean) : ''
+  const cleanFull = image?.path_clean ? publicUrl('images', image.path_clean) : ''
+  const [thumbFailed, setThumbFailed] = useState(false)
+  const cleanPath = image?.path_clean && thumb && !thumbFailed ? image.path_clean.replace(/-clean\.png$/, '-clean-t.png') : image?.path_clean
+  const clean = mode !== 'clean' ? '' : srcClean ? srcClean : cleanPath ? publicUrl('images', cleanPath) : ''
   const original = image ? publicUrl('images', (thumb && image.path_thumb) || image.path_original) : (src ?? '')
   // readiness is keyed by URL, so a fast load (cache, data:) is never wiped by a reset, and a new URL starts hidden
   const [readySrc, setReadySrc] = useState('')
@@ -58,7 +61,7 @@ export function Pic({ image, src, srcClean, category, mode = 'clean', thumb = tr
   return (
     <div className={`pic-box ${clean ? 'has-clean' : ''} ${cleanReady ? 'clean-ready' : ''} ${className ?? ''}`} style={{ ...box, ...tint }} onClick={onClick} role={onClick ? 'button' : undefined}>
       {original && <img className="pic-orig" src={original} alt={clean ? '' : alt} loading="lazy" decoding="async" />}
-      {clean && <img ref={cleanRef} className="pic-clean" src={clean} alt={alt} decoding="async" onLoad={e => setReadySrc(e.currentTarget.getAttribute('src') ?? '')} />}
+      {clean && <img ref={cleanRef} className="pic-clean" src={clean} alt={alt} decoding="async" onLoad={e => setReadySrc(e.currentTarget.getAttribute('src') ?? '')} onError={() => { if (clean !== cleanFull && cleanFull) setThumbFailed(true) }} />}
     </div>
   )
 }

@@ -138,6 +138,12 @@ export async function cleanMissing(ws: string, limit = 200): Promise<number> {
   return rows.length
 }
 
+/** One-off: asks the function to make list thumbs for cutouts made before thumbs existed (it only uploads what is missing). */
+export async function ensureCleanThumbs(ws: string): Promise<void> {
+  const { data } = await supabase.from('item_images').select('id,item_id').eq('workspace_id', ws).not('path_clean', 'is', null).limit(500)
+  for (const r of (data ?? []) as { id: string; item_id: string }[]) await requestClean(ws, r.item_id, r.id, true)
+}
+
 export async function saveSecret(ws: string, key: string, value: string) {
   const { error } = await supabase.rpc('set_secret', { ws, k: key, v: value })
   if (error) throw error

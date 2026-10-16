@@ -17,7 +17,7 @@ import { More } from './screens/More'
 import { DevUI } from './screens/DevUI'
 import { Oki } from './components/Oki'
 import { flush } from './lib/queue'
-import { cleanMissing } from './lib/api'
+import { cleanMissing, ensureCleanThumbs } from './lib/api'
 
 export function App() {
   const route = useRoute()
@@ -31,6 +31,7 @@ export function App() {
     if (!workspace || !hasCleanKey) return
     try { if (sessionStorage.getItem('tz.clean.swept')) return; sessionStorage.setItem('tz.clean.swept', '1') } catch { /* ignore */ }
     void cleanMissing(workspace.id).catch(() => {})
+    try { if (!localStorage.getItem('tz.clean.thumbs.v1')) { localStorage.setItem('tz.clean.thumbs.v1', '1'); void ensureCleanThumbs(workspace.id).catch(() => {}) } } catch { /* ignore */ }
   }, [workspace, hasCleanKey])
 
   // component gallery: no auth, no network, used for layout checks at every width
