@@ -1,6 +1,6 @@
 # TREZURE · שיטת העבודה של גילעד וקלוד
 
-**עודכן:** 17 באוקטובר 2026, 12:45. המסמך הזה נועד לשיחה חדשה: לקרוא אותו ולהתנהג כאילו היית כאן מההתחלה. הוא ממשיך את 06 של BRICK Shop ומוסיף את מה שנלמד כאן ביומיים הראשונים.
+**עודכן:** 17 באוקטובר 2026, 17:50. המסמך הזה נועד לשיחה חדשה: לקרוא אותו ולהתנהג כאילו היית כאן מההתחלה. הוא ממשיך את 06 של BRICK Shop ומוסיף את מה שנלמד כאן ביומיים הראשונים.
 
 ## מי זה גילעד, בהקשר הזה
 
@@ -37,12 +37,14 @@
 
 - **ריפו:** `margilad-ui/trezure` (קיים, אפליקציית Claude מותקנת). בשיחה חדשה: `add_repo` (push) ואז clone ל `/home/claude/trezure`. קומיט קצר באנגלית עם שורות Co-Authored-By ו Claude-Session. אם push נכשל ב "missing necessary objects": `git -c push.negotiate=false push --no-thin`.
 - **פריסה:** `git push` ל main → Actions (`npm run brand` מוריד PNG מ Storage, `npm run icons`, `npm run build`) → Pages. לפני push: `npm run build` ירוק (כולל tsc). מעקב: `gh api repos/margilad-ui/trezure/actions/runs`. אחרי פריסה: רענון אחד ל PWA. Pages כבר מופעל.
+- **`execute_sql` מחזיר לפעמים "cancelled"** על קריאה שמגדירה פונקציה עם delete מותנה, או על קריאה גדולה. לפצל לקריאות קטנות; מחיקות של שורות לשים בצד האפליקציה (מדיניות RLS) כשאפשר. לבדוק אחרי "cancelled" שבאמת לא נוצר כלום.
+- **בדיקת לוגיקה במסד בלי לגעת בנתונים:** בלוק `do $$ ... raise exception 'RESULT %', out; $$` עם `set_config('request.jwt.claims', ...)` של המשתמש. הכל מתבטל, והתוצאה חוזרת בהודעת השגיאה.
 - **בסיס נתונים:** `execute_sql` על `tkacgqckejabgnlzdujx`. רק הוספות (create if not exists, create or replace view/function, alter add column, create policy בשם חדש, insert on conflict). לא drop, לא revoke, לא טבלה חדשה עם מדיניות באותה קריאה, לא סודות. RLS אוטומטי כבר מופעל על טבלאות חדשות: טבלה חדשה חסומה עד שמוסיפים מדיניות. הסכמה המלאה מתועדת ב `supabase/migrations/0001_schema.sql` בריפו.
-- **פונקציות:** `deploy_edge_function` עם הקובץ המלא. קיימות `assets` (גרסה 3, verify_jwt=false) ו `vision` (גרסה 2, verify_jwt=true, מחזירה גם תגיות, המקור ב `supabase/functions/vision/index.ts`). `vision` היא הרפרנס לכל פונקציה חדשה: אימות JWT, אימות שייכות למרחב, ואז service role. חבילות עם קוד נייטיב מ deno.land, לא מ npm.
+- **פונקציות:** `deploy_edge_function` עם הקובץ המלא. קיימות `assets` (גרסה 3, verify_jwt=false), `vision` (גרסה 2, verify_jwt=true, מחזירה גם תגיות, המקור ב `supabase/functions/vision/index.ts`), `clean` (גרסה 3) ו `match` (גרסה 1, שכבה 2 של זיהוי הדומים, המקור ב `supabase/functions/match/index.ts`). `match` נקרא מהלקוח אחרי `vision` ולא מתוך `vision`, כדי לא לפרוס את `vision` מחדש. `vision` היא הרפרנס לכל פונקציה חדשה: אימות JWT, אימות שייכות למרחב, ואז service role. חבילות עם קוד נייטיב מ deno.land, לא מ npm.
 - **סודות:** רק דרך מסך ההגדרות באפליקציה, לטבלת `secrets` עם RLS. בדפדפן רק המפתח הציבורי. Edge Functions קוראות עם service role.
 - **תמונות:** מהמצלמה, מוקטנות בדפדפן (1600px WebP), ל Storage `images`, נתיבים אקראיים. נכסי מותג ב `brand`.
 - **RTL:** תמיד מאפיינים לוגיים, grid עם `min-width:0`, `overflow-x` חסום ב html. מונו תמיד LTR.
-- **הסורק:** BarcodeDetector מובנה כשיש, אחרת ZXing; עדשה אחורית ראשית, מיקוד רציף, זום.
+- **הסורק:** BarcodeDetector מובנה כשיש, אחרת ZXing ב WASM (`barcode-detector/ponyfill`, הקובץ נשלח עם האפליקציה ולא מ CDN, ולא נכנס למטמון ה PWA). `src/lib/scan.ts` מסווג קוד: תווית מקום (`/l/<code>`), תווית פריט (`/item/<id>`), ברקוד. `src/lib/camera.ts`: מצלמה ולולאת סריקה. מסך הצילום משתמש רק בקורא המובנה.
 - **בדיקות חיות:** הדפדפן המובנה של אפליקציית Claude (`Claude_Browser`), או Claude in Chrome כשכרום של גילעד פתוח (לבדוק שוב אם "not connected"; הוא מתחבר כשגילעד פותח כרום). הסשן ו `device_bash` לא מגיעים ל github.io, supabase.co, cdn.openart.ai. שניהם לא פותחים file://.
 - **סקירה מקומית:** Playwright בסשן (`/opt/pw-browsers/chromium`, `npm i playwright@1.49.1`) לצילומי HTML ולרינדור PNG. פונטים מ `@fontsource/*` ב node_modules.
 - **לגילעד:** `SendUserFile` לתצוגה בצ'אט, `device_commit_files` לתיקיית הפרויקט (מ `/mnt/user-data/outputs`), `project_write` לפרויקט. קבצים מהתיקייה אל הסשן: `device_stage_files`. פקודות על המחשב שלו: `device_bash` (התיקייה ב `$HOME/mnt/THE ORGINAIZUR`).
@@ -62,17 +64,15 @@
 
 ## איך להתחיל שיחה חדשה על הפרויקט
 
-1. לקרוא 06 (זה), ואז 04 (מצב), 05 (מה הלאה) ו 10 (תוכנית ספרינט 3). 00, 01, 02, 03, 07 לפי הצורך. 08 ו 09 הם היסטוריה: תוכניות ספרינט 1 ו 2 שבוצעו.
+1. לקרוא 06 (זה), ואז 04 (מצב) ו 05 (מה הלאה). 00, 01, 02, 03, 07 ו 10 לפי הצורך. 08, 09 ו 10 הם תוכניות ספרינט 1 עד 3 שבוצעו.
 2. לבדוק מצב חי: `list_projects` ב Supabase (`organizur` פעיל?), `list_tables` (יש כבר טבלאות?), ריפו (`gh repo view margilad-ui/trezure`, `gh run list`), ואם יש אתר, להסתכל בדפדפן המובנה.
 3. לענות לגילעד בעברית, בשתי שורות על המצב, ולשאול מה הוא רוצה לעשות עכשיו, אלא אם ההודעה שלו כבר אומרת.
 4. לא לבנות לפני "לך".
 
 ## הודעה להדבקה בשיחה חדשה
 
-> ממשיכים את TREZURE (הפרויקט THE ORGINAIZUR). קרא קודם את 06_Working_Method, ואז 04, 05 ו 10 מהפרויקט ב claude.ai (או מהתיקייה `THE ORGINAIZUR\00_Project_Docs`). 00, 02 ו 03 לפי הצורך. 08 ו 09 הם היסטוריה.
+> ממשיכים את TREZURE (הפרויקט THE ORGINAIZUR). קרא קודם את 06_Working_Method, ואז 04 ו 05 מהפרויקט ב claude.ai (או מהתיקייה `THE ORGINAIZUR\00_Project_Docs`). 00, 02, 03 ו 10 לפי הצורך.
 >
-> מצב: האפליקציה באוויר ובשימוש ב https://margilad-ui.github.io/trezure/ , ריפו `margilad-ui/trezure`, Supabase `organizur` (ref `tkacgqckejabgnlzdujx`). **ספרינט 2 בוצע:** OKI כוקטור עם הבעות ותנוחות, ניקוי תמונה דרך Replicate שעובד על התמונות האמיתיות, מחיקה לצמיתות, דף פריט מלא (הזז, שכפל, תמונה ראשית, היסטוריה), מסך מיקומים, מצב כהה, "בטל", שיתוף תמונה ממותגת, ותוויות 50×30 לרוחב ולאורך.
+> מצב: האפליקציה באוויר ובשימוש ב https://margilad-ui.github.io/trezure/ , ריפו `margilad-ui/trezure`, Supabase `organizur` (ref `tkacgqckejabgnlzdujx`) עם פונקציות assets, vision, clean ו match. **ספרינט 3 בוצע 17.10:** כמות לכל מיקום (`item_locations`), סורק, סריקת תווית מגירה ממסך הצילום, OKI שמזהה תאום בסידור עם איחוד ו"בטל", ומסך כפילויות. ההחלטות D64 עד D78 ב 02.
 >
-> **ספרינט 3 אופיין במלואו ב 10 וטרם אושר לריצה.** ארבעה עמודים: כמות לכל מיקום (`item_locations`), OKI שמזהה פריט שכבר קיים ומציע לאחד או לאחסן קרוב, מסך כפילויות, וסורק. ההחלטות D59 עד D62 כבר סגורות, אין צורך לפתוח אותן מחדש.
->
-> חבר את הריפו (`add_repo` + clone ל `/home/claude/trezure`) ואת התיקייה, בדוק מצב חי ב Supabase, ואז **תגיב למה שכתוב ותחכה ל"לך" לפני שאתה בונה.**
+> חבר את הריפו (`add_repo` + clone ל `/home/claude/trezure`) ואת התיקייה, בדוק מצב חי ב Supabase, **ותגיב למה שכתוב ותחכה ל"לך" לפני שאתה בונה.**
