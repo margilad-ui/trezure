@@ -18,6 +18,8 @@ export interface QueuedShot {
   /** client generated item id. A 'front' shot creates the item; other angles attach to it. */
   item_id: string
   angle: 'front' | 'side' | 'back' | 'detail'
+  /** product barcode read on the phone from this frame (or scanned just before), front shots only */
+  barcode?: string | null
   created_at: string
   tries: number
   error?: string
@@ -82,7 +84,7 @@ async function uploadOne(q: QueuedShot) {
   const isNew = q.angle === 'front'
   if (isNew) {
     const { error } = await supabase.from('items')
-      .upsert({ id: itemId, workspace_id: q.ws, location_id: q.location_id, qty: q.qty, stage: 'inbox' }, { onConflict: 'id', ignoreDuplicates: true })
+      .upsert({ id: itemId, workspace_id: q.ws, location_id: q.location_id, qty: q.qty, stage: 'inbox', ...(q.barcode ? { barcode: q.barcode } : {}) }, { onConflict: 'id', ignoreDuplicates: true })
     if (error) throw error
   }
   const imgId = crypto.randomUUID()
@@ -106,7 +108,10 @@ async function uploadOne(q: QueuedShot) {
       .select('id').single()
     if (e4) throw e4
     // fire and forget; the inbox polls job status
-    void supabase.functions.invoke('vision', { body: { job_id: job.id } }).catch(() => {})
+    void supabase.functions.invoke('vision', { body: { job_id: job.id } })
+      // once OKI knows what it is, it looks for a twin among what you already own
+      .then(() => supabase.functions.invoke('match', { body: { item_id: itemId } }))
+      .catch(() => {})
   }
 }
 

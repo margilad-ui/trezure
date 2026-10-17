@@ -14,7 +14,9 @@ import { drawLabel, type LabelSize } from '../lib/label'
 import { useStore } from '../lib/store'
 import { UNITS } from '../lib/seed'
 import { TagInput } from '../components/TagInput'
-import type { Kind } from '../lib/types'
+import type { Kind, ItemMatch, ItemWithImages } from '../lib/types'
+import { MatchLine } from '../components/MatchLine'
+import { MoveRight, Combine, Star, MapPin } from 'lucide-react'
 
 const SAMPLES = [
   { name: 'מסגרת תמונה לבנה RIBBA', brand: 'IKEA', cat: 'ציוד יצירה', loc: 'משרד · ארון 3 · מדף 2', color: '#1EA5A0', qty: 4, unit: 'unit', kind: 'equipment' as Kind, oki: 'נראה לי מסגרת תמונה לבנה RIBBA, IKEA. נכון?', st: 'done' },
@@ -126,6 +128,64 @@ function Card({ s, i }: { s: typeof SAMPLES[0]; i: number }) {
           <button type="button" className="tz-btn ghost"><SkipForward size={16} /> {t('inbox.skip')}</button>
           <button type="button" className="tz-btn"><Check size={18} /> {t('inbox.approve')}</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+
+const DEMO_TWIN = {
+  id: 't1', workspace_id: 'w', name: 'אלבום תמונות פרחים', brand: null, category_id: null, location_id: null, qty: 2, unit: 'unit', kind: 'equipment',
+  stock_state: 'full', min_qty: null, condition: null, barcode: null, tags: [], attrs: {}, notes: null, price: null, currency: null, cover_image_id: null,
+  stage: 'ready', ai: null, category_ids: [], created_by: null, created_at: '', updated_at: '', archived_at: null, item_images: [], item_locations: [],
+} as unknown as ItemWithImages
+const demoMatch = (verdict: 'same' | 'family'): ItemMatch => ({
+  workspace_id: 'w', item_a: 'a', item_b: 't1', score: 0.62, signals: { name: 0.7, barcode: null, unit_same: true }, verdict, confidence: 0.9,
+  reason_he: verdict === 'same' ? 'אותו אלבום, אותו כיתוב על הכריכה' : 'אלבום אחר, עיצוב כריכה שונה', reason_en: null, decision: null, updated_at: '',
+})
+
+function Sprint3Demo() {
+  const { t } = useT()
+  const noop = () => {}
+  return (
+    <div id="s3" style={{ display: 'grid', gap: 18, maxInlineSize: 760 }}>
+      <h2>Sprint 3</h2>
+      <div className="tz-card card-item" id="s3-match-same"><MatchLine match={demoMatch('same')} twin={DEMO_TWIN} unit="unit" location={null} onSame={noop} onNear={noop} onDismiss={noop} /></div>
+      <div className="tz-card card-item" id="s3-match-family"><MatchLine match={demoMatch('family')} twin={{ ...DEMO_TWIN, name: 'אלבום קנבס מעוצב עם כיתוב זהב ארוך מאוד' }} unit="pack" location={null} onSame={noop} onNear={noop} onDismiss={noop} /></div>
+      <div className="field" id="s3-places"><label>{t('places.title')}</label>
+        <div className="places">
+          {[['OF-D3-02', 'משרד · שידה 3 · מגירה 2', 4], ['ST-01', 'מחסן · מדף עליון ארוך במיוחד', 3], ['HM', 'בית', 0]].map(([code, name, n]) => (
+            <div key={String(code)} className="place-row">
+              <a className="tz-loc place-loc" href="#" style={{ ['--c' as string]: '#E8833A' }}><i aria-hidden="true" /><span className="mono">{code}</span><span className="place-name">{name}</span></a>
+              <div className="qty-ctl"><button type="button" disabled={n === 0}>−</button><span className="qty">{n}</span><button type="button">+</button></div>
+              <button type="button" className="icon"><MoveRight size={18} /></button>
+              {n === 0 && <button type="button" className="icon"><X size={18} /></button>}
+            </div>
+          ))}
+          <div className="place-foot"><span><span className="mono" style={{ fontWeight: 700 }}>7</span> יחידות {t('places.total', { n: 3 })}</span><button type="button" className="tz-btn quiet sm"><Plus size={16} /> {t('places.add')}</button></div>
+        </div>
+      </div>
+      <div className="capture scan" style={{ position: 'relative', inset: 'auto', minBlockSize: 0, borderRadius: 16 }} id="s3-scan">
+        <div className="scan-result">
+          <div className="scan-card idle"><Oki size={44} expression="ok" pose="search" /><p>{t('scan.idle')}</p></div>
+          <div className="scan-card"><MapPin size={22} /><div className="grow"><p className="lead">{t('scan.place.set')}</p><p className="meta">משרד · שידה 3 · מגירה 2</p></div><button type="button" className="tz-btn sm">{t('scan.place.open')}</button></div>
+          <div className="scan-card"><Oki size={44} expression="unsure" /><div className="grow"><p className="lead">{t('scan.unknown')}</p><p className="meta mono">7290012345678</p></div><button type="button" className="tz-btn sm"><Camera size={16} /> {t('scan.shoot')}</button></div>
+          <div className="scan-card item"><Pic size={56} image={null} category="x" /><button type="button" className="grow scan-item-name"><span className="lead">דבק חם שקוף ארוך מאוד בשם</span><span className="meta">{t('scan.item.qty', { n: 4, code: 'OF-D3-02' })} · {t('scan.item.total', { n: 7 })}</span></button><button type="button" className="tz-btn sm"><span className="plus-one">+1</span></button></div>
+        </div>
+      </div>
+      <div className="tz-card dup-group" id="s3-dup">
+        <div className="oki-line"><Oki size={36} expression="ok" /><p>{t('dup.g.same')}</p></div>
+        <div className="dup-items">
+          {[0, 1, 2].map(i => (
+            <div key={i} className={`dup-item ${i === 0 ? 'keep' : 'in'}`}>
+              <button type="button" className="dup-pic"><Pic size={112} image={null} category="x" /></button>
+              <b className="dup-name">מסגרת תמונה לבנה RIBBA</b><span className="meta dup-where">משרד · שידה 1</span><span className="meta"><span className="mono">2</span> יחידות</span>
+              {i === 0 ? <span className="dup-keep"><Star size={14} /> {t('dup.keep.on')}</span> : <div className="dup-ctl"><label className="row" style={{ gap: 6 }}><input type="checkbox" className="check" defaultChecked /> {t('dup.include')}</label><button type="button" className="tz-btn quiet sm"><Star size={14} /> {t('dup.keep')}</button></div>}
+            </div>
+          ))}
+        </div>
+        <ul className="dup-reasons"><li><span className="dim">מסגרת · מסגרת</span> אותה מסגרת, אותו גודל</li></ul>
+        <div className="dup-actions"><button type="button" className="tz-btn sm"><Combine size={16} /> {t('dup.merge', { n: 2, name: 'מסגרת תמונה לבנה RIBBA' })}</button><button type="button" className="tz-btn ghost sm"><X size={16} /> {t('dup.different')}</button></div>
       </div>
     </div>
   )
@@ -266,6 +326,7 @@ export function DevUI() {
           <button className="tz-btn finish"><Check size={20} /> {t('capture.finish', { n: 7 })}</button>
         </div>
       </div>
+      <Sprint3Demo />
       <div style={{ blockSize: 60 }} />
     </div>
   )

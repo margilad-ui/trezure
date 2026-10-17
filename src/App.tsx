@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Camera, Search as SearchIcon, Inbox as InboxIcon, Settings as SettingsIcon, Info, LogOut, MapPin } from 'lucide-react'
+import { Camera, Search as SearchIcon, Inbox as InboxIcon, Settings as SettingsIcon, Info, LogOut, MapPin, Layers } from 'lucide-react'
 import { useRoute, href, onLink, navigate } from './lib/router'
 import { useStore, boot, signOut } from './lib/store'
 import { useT, applyDir } from './i18n'
@@ -16,6 +16,8 @@ import { About } from './screens/About'
 import { More } from './screens/More'
 import { Locations, LocationByCode } from './screens/Locations'
 import { DevUI } from './screens/DevUI'
+import { Scan } from './screens/Scan'
+import { Duplicates } from './screens/Duplicates'
 import { Oki } from './components/Oki'
 import { flush } from './lib/queue'
 import { cleanMissing, ensureCleanThumbs } from './lib/api'
@@ -43,6 +45,7 @@ export function App() {
   if (!workspace) return <Welcome />
 
   if (route === '/capture') return <><Capture /><Toasts /></>
+  if (route === '/scan') return <><Scan /><Toasts /></>
 
   let page = <Search />
   if (route === '/inbox') page = <Inbox />
@@ -51,6 +54,7 @@ export function App() {
   else if (route.startsWith('/loc/')) page = <Locations id={route.slice('/loc/'.length)} />
   // a scanned location label: /l/<code> resolves to the place it belongs to
   else if (route.startsWith('/l/')) page = <LocationByCode code={decodeURIComponent(route.slice('/l/'.length))} />
+  else if (route === '/duplicates') page = <Duplicates />
   else if (route === '/settings') page = <Settings />
   else if (route === '/about') page = <About />
   else if (route === '/more') page = <More />
@@ -60,6 +64,7 @@ export function App() {
     { to: '/capture', icon: <Camera />, label: t('nav.capture'), match: (r: string) => r === '/capture' },
     { to: '/inbox', icon: <InboxIcon />, label: t('nav.inbox'), match: (r: string) => r === '/inbox' },
     { to: '/locations', icon: <MapPin />, label: t('loc.title'), match: (r: string) => r === '/locations' || r.startsWith('/loc/'), wide: true },
+    { to: '/duplicates', icon: <Layers />, label: t('dup.title'), match: (r: string) => r === '/duplicates', wide: true },
   ]
 
   return (
@@ -85,7 +90,7 @@ export function App() {
       </div></main>
       <nav className="bottomnav" aria-label="main">
         {nav.filter(n => !n.wide).map(n => <a key={n.to} href={href(n.to)} onClick={onLink} aria-current={n.match(route) ? 'page' : undefined}>{n.icon}<span>{n.label}</span></a>)}
-        <a href={href('/more')} onClick={onLink} aria-current={['/more', '/settings', '/about', '/locations'].includes(route) || route.startsWith('/loc/') ? 'page' : undefined}><SettingsIcon /><span>{t('nav.more')}</span></a>
+        <a href={href('/more')} onClick={onLink} aria-current={['/more', '/settings', '/about', '/locations', '/duplicates'].includes(route) || route.startsWith('/loc/') ? 'page' : undefined}><SettingsIcon /><span>{t('nav.more')}</span></a>
       </nav>
       <Toasts />
     </div>

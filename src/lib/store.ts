@@ -149,3 +149,10 @@ export function locColor(id: string | null | undefined): string {
   while (l && !l.color && l.parent_id) l = locById(l.parent_id)
   return l?.color || '#1EA5A0'
 }
+
+/** A location and every place inside it, so "the shed" also finds what sits in a box on a shelf in the shed. */
+export function locSubtree(id: string): string[] {
+  const out: string[] = [id]
+  for (let i = 0; i < out.length; i++) for (const l of state.locations) if (l.parent_id === out[i]) out.push(l.id)
+  return out
+}

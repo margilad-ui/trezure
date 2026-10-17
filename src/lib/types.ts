@@ -43,6 +43,8 @@ export interface AiResult {
   needs_reshoot?: { angle: string; reason_he: string; reason_en?: string } | null
   model?: string
   error?: string
+  /** set by the match function once it has looked for twins */
+  match?: { checked_at: string; candidates: number; judged: number; note?: string }
 }
 
 export interface Item {
@@ -56,6 +58,7 @@ export interface Item {
   price: number | null; currency: string | null
   cover_image_id: string | null; stage: Stage; ai: AiResult | null
   category_ids: string[]
+  merged_into?: string | null
   created_by: string | null; created_at: string; updated_at: string; archived_at: string | null
 }
 
@@ -72,4 +75,20 @@ export interface ImageJob {
 }
 
 export interface ItemCategory { category_id: string }
-export interface ItemWithImages extends Item { item_images: ItemImage[]; image_jobs?: ImageJob[]; item_categories?: ItemCategory[] }
+/** How much of an item sits in one place. */
+export interface ItemLoc { location_id: string; qty: number }
+export interface ItemWithImages extends Item {
+  item_images: ItemImage[]; image_jobs?: ImageJob[]; item_categories?: ItemCategory[]
+  /** every place the item lives, with the quantity there */
+  item_locations?: ItemLoc[]
+  /** only the places inside the location filter, when one is active */
+  here?: ItemLoc[]
+}
+
+export type Verdict = 'same' | 'family' | 'unrelated'
+export interface ItemMatch {
+  workspace_id: string; item_a: string; item_b: string; score: number
+  signals: { name?: number; brand?: number; category?: boolean; tags?: number; barcode?: 'same' | 'diff' | null; unit_same?: boolean }
+  verdict: Verdict | null; confidence: number | null; reason_he: string | null; reason_en: string | null
+  decision: 'merged' | 'near' | 'dismissed' | null; updated_at: string
+}

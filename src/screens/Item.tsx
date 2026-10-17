@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Trash2, Loader2, RefreshCw, MoveRight, Copy, ImagePlus, Star, Share2, Tag } from 'lucide-react'
+import { ArrowRight, Trash2, Loader2, RefreshCw, MoveRight, Copy, ImagePlus, Star, Share2, Tag, Plus, X } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, catById, catColor, locById, locLabel, locColor } from '../lib/store'
-import { fetchItem, updateItem, adjustQty, workspaceTags, setItemCategories, requestAnalysis, moveItem, duplicateItem, setCoverImage } from '../lib/api'
-import type { ItemWithImages, Kind, FieldDef } from '../lib/types'
+import { fetchItem, updateItem, workspaceTags, setItemCategories, requestAnalysis, moveItem, duplicateItem, setCoverImage, adjustQtyAt, moveQty, pruneItemLocation, placesOf } from '../lib/api'
+import type { ItemWithImages, ItemLoc, Kind, FieldDef } from '../lib/types'
 import { publicUrl } from '../lib/supabase'
-import { navigate } from '../lib/router'
+import { navigate, href, onLink } from '../lib/router'
 import { LocationPicker } from '../components/LocationPicker'
+import { Sheet } from '../components/Sheet'
 import { Pic } from '../components/Pic'
 import { RemoveItem } from '../components/RemoveItem'
 import { History } from '../components/History'
@@ -23,7 +24,10 @@ export function ItemScreen({ id }: { id: string }) {
   useStore()
   const [it, setIt] = useState<ItemWithImages | null | undefined>(undefined)
   const [cur, setCur] = useState(0)
-  const [locPick, setLocPick] = useState<null | 'move' | 'duplicate'>(null)
+  const [locPick, setLocPick] = useState<null | 'move' | 'duplicate' | 'add' | 'moveFrom'>(null)
+  /** the place a partial move starts from, and (once picked) where it goes */
+  const [moving, setMoving] = useState<{ from: ItemLoc; to?: string } | null>(null)
+  const [moveN, setMoveN] = useState(1)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [allTags, setAllTags] = useState<string[]>([])
@@ -51,6 +55,7 @@ export function ItemScreen({ id }: { id: string }) {
     return out
   })()
   const patch = (p: Partial<ItemWithImages>) => { setIt(x => x ? { ...x, ...p } : x); setDirty(true) }
+  const places = placesOf(it)
 
   /** Sends the item back to OKI and waits for the answer, without touching what is already filled in. */
   async function reanalyze() {
@@ -77,7 +82,7 @@ export function ItemScreen({ id }: { id: string }) {
     if (!it) return
     setSaving(true)
     try {
-      await updateItem(it.id, { name: it.name, brand: it.brand, category_id: it.category_id, location_id: it.location_id, unit: it.unit, kind: it.kind, attrs: it.attrs, tags: it.tags, notes: it.notes, min_qty: it.min_qty, stage: 'ready' })
+      await updateItem(it.id, { name: it.name, brand: it.brand, category_id: it.category_id, unit: it.unit, kind: it.kind, attrs: it.attrs, tags: it.tags, notes: it.notes, min_qty: it.min_qty, stage: 'ready' })
       await setItemCategories(it.id, it.workspace_id, extra)
       setDirty(false); toast(t('item.saved'), 'ok')
     } catch (e) { toast(String((e as Error).message), 'err') } finally { setSaving(false) }
@@ -86,7 +91,7 @@ export function ItemScreen({ id }: { id: string }) {
   async function move(locationId: string) {
     if (!it) return
     setBusyAct(true)
-    try { await moveItem(it, locationId); setIt(x => x ? { ...x, location_id: locationId } : x); setHistKey(k => k + 1); toast(t('item.moved'), 'ok') }
+    try { await moveItem(it, locationId); await refreshStock(); setHistKey(k => k + 1); toast(t('item.moved'), 'ok') }
     catch (e) { toast(String((e as Error).message), 'err') } finally { setBusyAct(false) }
   }
   /** The same item somewhere else, photos included, without shooting it again. */
@@ -113,9 +118,31 @@ export function ItemScreen({ id }: { id: string }) {
     } catch (e) { toast(String((e as Error).message === 'no_image' ? t('item.share.noimg') : t('common.error')), 'err') } finally { setSharing(false) }
   }
 
-  async function bump(d: number) {
+  /** Pulls the stock columns again without touching anything still being edited on screen. */
+  async function refreshStock() {
+    const fresh = await fetchItem(id)
+    if (fresh) setIt(x => x ? { ...x, qty: fresh.qty, location_id: fresh.location_id, stock_state: fresh.stock_state, item_locations: fresh.item_locations } : fresh)
+  }
+  /** +/- in one place. The screen moves first; the server's answer settles it. */
+  async function bumpAt(loc: string | null, d: number) {
     if (!it) return
-    try { const n = await adjustQty(it.id, d); setIt(x => x ? { ...x, qty: n } : x) } catch (e) { toast(String((e as Error).message), 'err') }
+    setIt(x => x ? { ...x, qty: Math.max(0, x.qty + d), item_locations: (x.item_locations ?? []).map(r => r.location_id === loc ? { ...r, qty: Math.max(0, Number(r.qty) + d) } : r) } : x)
+    try { await adjustQtyAt(it.id, loc, d); await refreshStock() } catch (e) { toast(String((e as Error).message), 'err'); void refreshStock() }
+  }
+  async function addPlace(loc: string) {
+    if (!it) return
+    if (placesOf(it).some(p => p.location_id === loc)) { toast(t('places.already')); return }
+    try { await adjustQtyAt(it.id, loc, 1); await refreshStock(); setHistKey(k => k + 1) } catch (e) { toast(String((e as Error).message), 'err') }
+  }
+  async function doMove(from: string, to: string, n: number | null) {
+    if (!it) return
+    setBusyAct(true)
+    try { await moveQty(it.id, from, to, n); await refreshStock(); setHistKey(k => k + 1); toast(t('item.moved'), 'ok') }
+    catch (e) { toast(String((e as Error).message), 'err') } finally { setBusyAct(false); setMoving(null) }
+  }
+  async function prune(loc: string) {
+    if (!it) return
+    try { await pruneItemLocation(it, loc); await refreshStock() } catch (e) { toast(String((e as Error).message), 'err') }
   }
 
   return (
@@ -163,12 +190,6 @@ export function ItemScreen({ id }: { id: string }) {
               onPrimary={cid => patch({ category_id: cid || null })}
               onExtra={ids => { setExtra(ids); setDirty(true) }}
             />
-            <div className="field"><label>{t('field.location')}</label>
-              <button type="button" className="tz-input" style={{ textAlign: 'start', display: 'flex', alignItems: 'center', gap: 8 }} onClick={() => setLocPick('move')}>
-                <i style={{ inlineSize: 10, blockSize: 10, borderRadius: '50%', background: locColor(it.location_id), flex: 'none' }} />
-                <span className="grow">{locLabel(it.location_id) || t('field.choose')}</span>
-              </button>
-            </div>
             <div className="field"><label>{t('field.kind')}</label>
               <div className="seg">{(['equipment', 'consumable', 'kit'] as Kind[]).map(k => <button key={k} type="button" aria-pressed={it.kind === k} onClick={() => patch({ kind: k })}>{t(`kind.${k}` as Key)}</button>)}</div>
             </div>
@@ -182,10 +203,36 @@ export function ItemScreen({ id }: { id: string }) {
               </div>
             ))}
           </div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
-            <div className="field"><label>{t('field.qty')}</label>
-              <div className="qty-ctl"><button type="button" onClick={() => void bump(-1)} aria-label="-1">−</button><input readOnly value={it.qty} /><button type="button" onClick={() => void bump(1)} aria-label="+1">+</button></div>
+          <div className="field">
+            <label>{t('places.title')}</label>
+            <div className="places">
+              {places.length === 0 && (
+                <div className="place-row">
+                  <span className="meta grow">{t('places.none')}</span>
+                  <div className="qty-ctl"><button type="button" onClick={() => void bumpAt(null, -1)} aria-label="-1">−</button><span className="qty">{it.qty}</span><button type="button" onClick={() => void bumpAt(null, 1)} aria-label="+1">+</button></div>
+                </div>
+              )}
+              {places.map(p => (
+                <div key={p.location_id} className="place-row">
+                  <a className="tz-loc place-loc" href={href(`/loc/${p.location_id}`)} onClick={onLink} style={{ ['--c' as string]: locColor(p.location_id) }}>
+                    <i aria-hidden="true" /><span className="mono">{locById(p.location_id)?.code}</span><span className="place-name">{locLabel(p.location_id)}</span>
+                  </a>
+                  <div className="qty-ctl">
+                    <button type="button" onClick={() => void bumpAt(p.location_id, -1)} disabled={p.qty <= 0} aria-label="-1">−</button>
+                    <span className="qty">{p.qty}</span>
+                    <button type="button" onClick={() => void bumpAt(p.location_id, 1)} aria-label="+1">+</button>
+                  </div>
+                  <button type="button" className="icon" title={t('places.move')} aria-label={t('places.move')} disabled={busyAct} onClick={() => { setMoving({ from: p }); setMoveN(Math.max(1, p.qty)); setLocPick('moveFrom') }}><MoveRight size={18} /></button>
+                  {p.qty <= 0 && places.length > 1 && <button type="button" className="icon" title={t('places.prune')} aria-label={t('places.prune')} onClick={() => void prune(p.location_id)}><X size={18} /></button>}
+                </div>
+              ))}
+              <div className="place-foot">
+                <span><span className="mono" style={{ fontWeight: 700 }}>{it.qty}</span> {t(`unit.${it.unit}` as Key)} {places.length > 1 ? t('places.total', { n: places.length }) : ''}</span>
+                <button type="button" className="tz-btn quiet sm" onClick={() => setLocPick('add')}><Plus size={16} /> {t('places.add')}</button>
+              </div>
             </div>
+          </div>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
             <div className="field"><label>{t('field.unit')}</label>
               <select className="tz-input" value={it.unit} onChange={e => patch({ unit: e.target.value })}>{UNITS.map(u => <option key={u} value={u}>{t(`unit.${u}` as Key)}</option>)}</select>
             </div>
@@ -205,7 +252,29 @@ export function ItemScreen({ id }: { id: string }) {
         </div>
       </div>
       <History key={histKey} itemId={it.id} createdAt={it.created_at} />
-      <LocationPicker open={locPick !== null} onClose={() => setLocPick(null)} onPick={id => { if (locPick === 'duplicate') void duplicate(id); else void move(id) }} />
+      <LocationPicker open={locPick !== null} onClose={() => { setLocPick(null) }} onPick={id => {
+        if (locPick === 'duplicate') void duplicate(id)
+        else if (locPick === 'add') void addPlace(id)
+        else if (locPick === 'moveFrom' && moving) { if (moving.from.qty > 1) setMoving({ ...moving, to: id }); else void doMove(moving.from.location_id, id, null) }
+        else void move(id)
+      }} />
+      <Sheet open={Boolean(moving?.to)} onClose={() => setMoving(null)} title={t('places.move.title')}>
+        {moving?.to && <>
+          <p className="meta">{t('places.move.route', { from: locLabel(moving.from.location_id), to: locLabel(moving.to) })}</p>
+          <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+            <div className="qty-ctl">
+              <button type="button" onClick={() => setMoveN(n => Math.max(1, n - 1))} aria-label="-1">−</button>
+              <span className="qty">{moveN}</span>
+              <button type="button" onClick={() => setMoveN(n => Math.min(moving.from.qty, n + 1))} aria-label="+1">+</button>
+            </div>
+            <span className="meta">{t('places.move.of', { n: moving.from.qty })}</span>
+          </div>
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <button type="button" className="tz-btn" disabled={busyAct} onClick={() => void doMove(moving.from.location_id, moving.to!, moveN >= moving.from.qty ? null : moveN)}><MoveRight size={18} /> {moveN >= moving.from.qty ? t('places.move.all') : t('places.move.n', { n: moveN })}</button>
+            {moveN < moving.from.qty && <button type="button" className="tz-btn ghost" disabled={busyAct} onClick={() => void doMove(moving.from.location_id, moving.to!, null)}>{t('places.move.all')}</button>}
+          </div>
+        </>}
+      </Sheet>
       <LabelSheet open={labelling} onClose={() => setLabelling(false)} kind="item"
         data={{ name: it.name || t('remove.untitled'), code: (locLabel(it.location_id) ? locById(it.location_id)?.code + '.' : '') + it.id.slice(0, 4).toUpperCase(), url: labelUrl('item', it.id) }} />
       <RemoveItem item={it} open={removing} onClose={() => setRemoving(false)} onDone={() => navigate('/')} />

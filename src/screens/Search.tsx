@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search as SearchIcon, LayoutGrid, List, Table2, Loader2 } from 'lucide-react'
+import { Search as SearchIcon, LayoutGrid, List, Table2, Loader2, ScanLine } from 'lucide-react'
 import { useT, type Key } from '../i18n'
 import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { searchItems, adjustQty, inboxCount, workspaceTags, type SearchFilters } from '../lib/api'
+import { searchItems, adjustQtyAt, inboxCount, workspaceTags, type SearchFilters } from '../lib/api'
 import type { ItemWithImages, Kind, StockState } from '../lib/types'
 import { coverImage, Pic } from '../components/Pic'
 import { Oki } from '../components/Oki'
@@ -61,10 +61,15 @@ export function Search() {
   async function bump(it: ItemWithImages, delta: number) {
     const prev = it.qty
     setItems(list => list?.map(x => x.id === it.id ? { ...x, qty: Math.max(0, x.qty + delta) } : x) ?? null)
-    try { const n = await adjustQty(it.id, delta); setItems(list => list?.map(x => x.id === it.id ? { ...x, qty: n, stock_state: n === 0 ? 'empty' : x.min_qty != null && n <= x.min_qty ? 'low' : 'full' } : x) ?? null) }
+    // with a place filter, +/- counts what is in that place (the first matching row), not the main place
+    const at = f.location_id && it.here?.length ? it.here[0].location_id : null
+    if (at) setItems(list => list?.map(x => x.id === it.id ? { ...x, here: x.here?.map((r, i) => i === 0 ? { ...r, qty: Math.max(0, Number(r.qty) + delta) } : r) } : x) ?? null)
+    try { const n = (await adjustQtyAt(it.id, at, delta)).total; setItems(list => list?.map(x => x.id === it.id ? { ...x, qty: n, stock_state: n === 0 ? 'empty' : x.min_qty != null && n <= x.min_qty ? 'low' : 'full' } : x) ?? null) }
     catch { setItems(list => list?.map(x => x.id === it.id ? { ...x, qty: prev } : x) ?? null) }
   }
 
+  /** with a place filter on, what sits inside that place; otherwise null and the total shows */
+  const localQty = (it: ItemWithImages): number | null => f.location_id && it.here ? it.here.reduce((a, r) => a + Number(r.qty), 0) : null
   const chip = (label: string, on: boolean, onClick: () => void) => <button type="button" className="chip-btn" aria-pressed={on} onClick={onClick}>{label}</button>
   const noFilters = !q && !f.category_id && !f.location_id && !f.kind && !f.stock && !f.tag && !f.inbox
   const isEmptyWorkspace = items !== null && items.length === 0 && noFilters
@@ -77,6 +82,7 @@ export function Search() {
       <div className="search-bar">
         <SearchIcon size={22} />
         <input className="tz-input" value={q} onChange={e => setQ(e.target.value)} placeholder={t('search.placeholder')} autoFocus={wide} enterKeyHint="search" aria-label={t('search.title')} />
+        <a className="scan-btn" href={href('/scan')} onClick={onLink} aria-label={t('scan.title')} title={t('scan.title')}><ScanLine size={22} /></a>
       </div>
       <div className="chips" style={{ marginBlockStart: 10 }}>
         <select className="chip-btn" value={f.category_id ?? ''} onChange={e => setF(x => ({ ...x, category_id: e.target.value || null }))} aria-label={t('search.filter.category')} style={{ appearance: 'auto' }}>
@@ -128,7 +134,7 @@ export function Search() {
                     <Pic className="gpic" image={coverImage(it.item_images, it.cover_image_id)} category={it.category_id} />
                     <div className="b">
                       <span className="name">{it.name || <span className="dim">{t('stage.inbox')}</span>}</span>
-                      <span className="row" style={{ justifyContent: 'space-between' }}><span className="mono" style={{ fontSize: 'var(--fs-sm)' }}>{it.qty}</span>{stockBadge(it)}</span>
+                      <span className="row" style={{ justifyContent: 'space-between' }}><span className="mono" style={{ fontSize: 'var(--fs-sm)' }}>{localQty(it) ?? it.qty}</span>{stockBadge(it)}</span>
                     </div>
                   </button>
                 ))}
@@ -143,6 +149,7 @@ export function Search() {
                       <div className="name">{it.name || <span className="dim">{t('stage.inbox')}</span>}{it.brand && <span className="dim" style={{ fontWeight: 400 }}> · {it.brand}</span>}</div>
                       <div className="sub">
                         {it.location_id && <span className="tz-loc" style={{ ['--c' as string]: locColor(it.location_id), fontSize: 'var(--fs-label)', padding: '2px 8px' }}><i aria-hidden="true" />{locLabel(it.location_id)}</span>}
+                        {(it.item_locations?.length ?? 0) > 1 && <span className="loc-more">{t('places.more', { n: (it.item_locations?.length ?? 1) - 1 })}</span>}
                         {it.category_id && <span className="meta">{catName(catById(it.category_id))}</span>}
                         {stockBadge(it)}
                         {it.tags?.slice(0, 3).map(tg => <span key={tg} className="tag-sm">{tg}</span>)}
@@ -150,7 +157,7 @@ export function Search() {
                     </div>
                     <div className="qty-ctl" onClick={e => e.stopPropagation()}>
                       <button type="button" onClick={() => void bump(it, -1)} aria-label="-1">−</button>
-                      <span className="qty" style={{ alignSelf: 'center' }}>{it.qty}</span>
+                      <span className="qty" style={{ alignSelf: 'center' }} title={localQty(it) !== null ? t('places.here.of', { n: localQty(it)!, total: it.qty }) : undefined}>{localQty(it) ?? it.qty}</span>
                       <button type="button" onClick={() => void bump(it, +1)} aria-label="+1">+</button>
                     </div>
                   </div>
@@ -174,7 +181,7 @@ export function Search() {
                       <td>{it.brand}</td>
                       <td>{catName(catById(it.category_id))}</td>
                       <td>{it.location_id && <span className="tz-loc" style={{ ['--c' as string]: locColor(it.location_id) }}><i aria-hidden="true" />{locLabel(it.location_id)}</span>}</td>
-                      <td className="mono">{it.qty} <span className="dim" style={{ fontFamily: 'var(--font-he)', fontWeight: 400 }}>{t(`unit.${it.unit}` as Key)}</span></td>
+                      <td className="mono">{localQty(it) !== null && localQty(it) !== it.qty ? `${localQty(it)}/${it.qty}` : it.qty} <span className="dim" style={{ fontFamily: 'var(--font-he)', fontWeight: 400 }}>{t(`unit.${it.unit}` as Key)}</span></td>
                       <td>{stockBadge(it) ?? <span className="meta">{t('stock.full')}</span>}</td>
                       <td className="meta">{new Date(it.updated_at).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-GB')}</td>
                       <td onClick={e => e.stopPropagation()}>

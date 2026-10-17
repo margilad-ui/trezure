@@ -1,4 +1,4 @@
-import { Settings as SettingsIcon, Info, LogOut, ChevronLeft, MapPin } from 'lucide-react'
+import { Settings as SettingsIcon, Info, LogOut, ChevronLeft, MapPin, ScanLine, Layers } from 'lucide-react'
 import { useT } from '../i18n'
 import { href, onLink, navigate } from '../lib/router'
 import { signOut, useStore } from '../lib/store'
@@ -12,7 +12,9 @@ export function More() {
       <div className="screen-h"><h1>{t('nav.more')}</h1></div>
       <div className="tz-card stack">
         <div className="meta">{workspace?.name} · <span dir="ltr">{session?.user.email}</span></div>
+        <a className="list-row" href={href('/scan')} onClick={onLink}><ScanLine /><span className="grow">{t('scan.title')}</span><ChevronLeft className="dim" /></a>
         <a className="list-row" href={href('/locations')} onClick={onLink}><MapPin /><span className="grow">{t('loc.title')}</span><ChevronLeft className="dim" /></a>
+        <a className="list-row" href={href('/duplicates')} onClick={onLink}><Layers /><span className="grow">{t('dup.title')}</span><ChevronLeft className="dim" /></a>
         <a className="list-row" href={href('/settings')} onClick={onLink}><SettingsIcon /><span className="grow">{t('nav.settings')}</span><ChevronLeft className="dim" /></a>
         <a className="list-row" href={href('/about')} onClick={onLink}><Info /><span className="grow">{t('nav.about')}</span><ChevronLeft className="dim" /></a>
         <button type="button" className="list-row" onClick={() => void signOut().then(() => navigate('/'))}><LogOut /><span className="grow">{t('nav.logout')}</span></button>

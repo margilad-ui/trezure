@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as RKey } from 'react'
 import { Check, SkipForward, Trash2, RefreshCw } from 'lucide-react'
 import { useT, dayLabel, timeLabel, type Key } from '../i18n'
-import { useStore, catById, catName, locLabel, locColor } from '../lib/store'
-import { fetchInbox, approveItem, unapproveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories } from '../lib/api'
-import type { ItemWithImages, Category, Kind, FieldDef } from '../lib/types'
+import { useStore, catById, catName, locLabel, locColor, locById } from '../lib/store'
+import { fetchInbox, approveItem, unapproveItem, updateItem, requestAnalysis, workspaceTags, setItemCategories, openMatches, fetchItems, requestMatch, mergeItems, unmergeItems, decideMatch, otherOf } from '../lib/api'
+import type { ItemWithImages, ItemMatch, Category, Kind, FieldDef } from '../lib/types'
+import { MatchLine, bestMatch } from '../components/MatchLine'
 import { coverImage, Pic } from '../components/Pic'
 import { Oki } from '../components/Oki'
 import { RemoveItem } from '../components/RemoveItem'
@@ -66,6 +67,22 @@ export function Inbox() {
   const [doneCount, setDoneCount] = useState(0)
   const [knownTags, setKnownTags] = useState<string[]>([])
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [matches, setMatches] = useState<ItemMatch[]>([])
+  const [twins, setTwins] = useState<Map<string, ItemWithImages>>(new Map())
+  const [busyMatch, setBusyMatch] = useState<string | null>(null)
+  const kicked = useRef<Set<string>>(new Set())
+
+  /** Pairs for what is on screen, plus the items on the other side of them. */
+  const loadMatches = useCallback(async (list: ItemWithImages[]) => {
+    try {
+      const ms = await openMatches(list.map(i => i.id))
+      const here = new Map(list.map(i => [i.id, i]))
+      const need = Array.from(new Set(ms.flatMap(m => [m.item_a, m.item_b]))).filter(id => !here.has(id))
+      const more = await fetchItems(need)
+      setTwins(new Map([...here, ...more.map(i => [i.id, i] as const)]))
+      setMatches(ms)
+    } catch { /* twins are a bonus, never a blocker */ }
+  }, [])
 
   const load = useCallback(async (quiet = false) => {
     if (!workspace) return
@@ -73,6 +90,7 @@ export function Inbox() {
     try {
       const list = await fetchInbox(workspace.id)
       setItems(list)
+      void loadMatches(list)
       setDrafts(prev => {
         const next = { ...prev }
         for (const it of list) {
@@ -83,12 +101,25 @@ export function Inbox() {
       })
       if (!focus && list.length) setFocus(list[0].id)
     } finally { setLoading(false) }
-  }, [workspace, categories, focus])
+  }, [workspace, categories, focus, loadMatches])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => { if (workspace) void workspaceTags(workspace.id).then(setKnownTags).catch(() => {}) }, [workspace])
   // poll while something is analyzing
-  const anyPending = items.some(it => jobState(it) === 'pending' || (it.image_jobs ?? []).some(j => j.type === 'clean' && (j.status === 'pending' || j.status === 'running')))
+  // still waiting for OKI: an analysis, a cleanup, or the twin check that follows an analysis
+  const waitingTwin = (it: ItemWithImages) => jobState(it) === 'done' && !it.ai?.match && Date.now() - new Date(it.created_at).getTime() < 4 * 60_000
+  const anyPending = items.some(it => jobState(it) === 'pending' || waitingTwin(it) || (it.image_jobs ?? []).some(j => j.type === 'clean' && (j.status === 'pending' || j.status === 'running')))
+  // items analysed before twins existed (or whose check was lost) get one check, once per visit
+  useEffect(() => {
+    const stale = items.filter(it => {
+      if (jobState(it) !== 'done' || it.ai?.match || kicked.current.has(it.id)) return false
+      const j = (it.image_jobs ?? []).filter(x => x.type === 'analyze').sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]
+      return !j || Date.now() - new Date(j.updated_at).getTime() > 45_000
+    })
+    if (!stale.length) return
+    stale.forEach(it => kicked.current.add(it.id))
+    void (async () => { for (const it of stale) await requestMatch(it.id); void load(true) })()
+  }, [items]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!anyPending) return
     const id = setInterval(() => void load(true), 3000)
@@ -150,6 +181,45 @@ export function Inbox() {
     }
   }
 
+
+  /** "It is the same thing": one line instead of two, the quantity lands in the place chosen here. */
+  async function matchSame(it: ItemWithImages, m: ItemMatch) {
+    const d = drafts[it.id]; const twinId = otherOf(m, it.id); const twin = twins.get(twinId)
+    if (!d || !twin) return
+    setBusyMatch(it.id)
+    try {
+      const patch: Record<string, unknown> = {}
+      if ((d.location_id || null) !== it.location_id) patch.location_id = d.location_id || null
+      if (Number(d.qty) !== Number(it.qty)) patch.qty = d.qty
+      if (Object.keys(patch).length) await updateItem(it.id, patch)
+      await mergeItems(it.id, twinId)
+      const remaining = items.filter(x => x.id !== it.id)
+      setItems(remaining)
+      if (focus === it.id) setFocus(remaining[0]?.id ?? null)
+      play('sorted')
+      const undo = { label: t('undo'), run: () => { void unmergeItems(it.id).then(() => load(true)).catch(e => toast(String((e as Error).message), 'err')) } }
+      toast(t('match.merged', { name: twin.name || t('remove.untitled') }), 'ok', 6000, undo)
+    } catch (e) { toast(String((e as Error).message), 'err'); void load(true) } finally { setBusyMatch(null) }
+  }
+  /** "New, but keep it near": the twin's place becomes this item's place, shared tags come along. */
+  async function matchNear(it: ItemWithImages, m: ItemMatch) {
+    const d = drafts[it.id]; const twin = twins.get(otherOf(m, it.id))
+    if (!d || !twin) return
+    setBusyMatch(it.id)
+    try {
+      const place = twin.location_id
+      const shared = (twin.tags ?? []).filter(tag => (it.ai?.tags ?? []).includes(tag) && !d.tags.includes(tag))
+      setDraft(it.id, { ...(place ? { location_id: place } : {}), ...(shared.length ? { tags: [...d.tags, ...shared] } : {}) })
+      if (place && place !== it.location_id) await updateItem(it.id, { location_id: place })
+      await decideMatch(m.item_a, m.item_b, 'near')
+      setMatches(ms => ms.filter(x => !(x.item_a === m.item_a && x.item_b === m.item_b)))
+      if (place && place !== d.location_id) toast(t('match.near.done', { code: locById(place)?.code ?? '' }), 'ok')
+    } catch (e) { toast(String((e as Error).message), 'err') } finally { setBusyMatch(null) }
+  }
+  async function matchDismiss(m: ItemMatch) {
+    setMatches(ms => ms.filter(x => !(x.item_a === m.item_a && x.item_b === m.item_b)))
+    try { await decideMatch(m.item_a, m.item_b, 'dismissed') } catch { /* it comes back next time; harmless */ }
+  }
 
   async function retry(it: ItemWithImages) {
     try { await requestAnalysis(it); void load(true) } catch (e) { toast(String((e as Error).message), 'err') }
@@ -312,6 +382,14 @@ export function Inbox() {
                         </label>
                       </div>
                     </div>
+                    {(() => {
+                      const bm = bestMatch(it.id, matches, twins)
+                      const twin = bm ? twins.get(otherOf(bm, it.id)) : undefined
+                      return bm && twin ? (
+                        <MatchLine match={bm} twin={twin} unit={d.unit} location={d.location_id || null} busy={busyMatch === it.id}
+                          onSame={() => void matchSame(it, bm)} onNear={() => void matchNear(it, bm)} onDismiss={() => void matchDismiss(bm)} />
+                      ) : null
+                    })()}
                     <div className="fields">
                       <div className={`field wide-2 ${low('name') ? 'low' : ''}`}><label>{t('field.name')}</label><input data-first className="tz-input" value={d.name} onChange={e => setDraft(it.id, { name: e.target.value })} /></div>
                       <div className={`field ${low('brand') ? 'low' : ''}`}><label>{t('field.brand')}</label><input className="tz-input" value={d.brand} onChange={e => setDraft(it.id, { brand: e.target.value })} /></div>

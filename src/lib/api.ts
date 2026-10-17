@@ -1,7 +1,9 @@
 import { supabase } from './supabase'
-import type { Item, ItemWithImages, Kind, StockState } from './types'
+import type { Item, ItemWithImages, ItemLoc, ItemMatch, Kind, StockState } from './types'
+import { locSubtree } from './store'
+import { sameBarcode } from './scan'
 
-const ITEM_COLS = '*, item_images(*), item_categories(category_id), image_jobs(id,status,error,type,updated_at)'
+const ITEM_COLS = '*, item_images(*), item_categories(category_id), item_locations(location_id,qty), image_jobs(id,status,error,type,updated_at)'
 
 export async function fetchInbox(ws: string): Promise<ItemWithImages[]> {
   const { data, error } = await supabase.from('items').select(ITEM_COLS)
@@ -33,6 +35,8 @@ export interface SearchFilters {
   q?: string
   category_id?: string | null
   location_id?: string | null
+  /** location filter matches that place only, not what is inside it */
+  exact?: boolean
   kind?: Kind | null
   stock?: StockState | null
   tag?: string | null
@@ -40,10 +44,12 @@ export interface SearchFilters {
 }
 
 export async function searchItems(ws: string, f: SearchFilters): Promise<ItemWithImages[]> {
-  let qb = supabase.from('items').select('*, item_images(*), item_categories(category_id)').eq('workspace_id', ws).is('archived_at', null)
+  const base = '*, item_images(*), item_categories(category_id), item_locations(location_id,qty)'
+  let qb = supabase.from('items').select(f.location_id ? `${base}, here:item_locations!inner(location_id,qty)` : base).eq('workspace_id', ws).is('archived_at', null)
   if (f.inbox) qb = qb.eq('stage', 'inbox'); else qb = qb.eq('stage', 'ready')
   if (f.category_id) qb = qb.contains('category_ids', [f.category_id])
-  if (f.location_id) qb = qb.eq('location_id', f.location_id)
+  // a place matches when any part of the item sits there (or, unless exact, anywhere inside it)
+  if (f.location_id) qb = qb.in('here.location_id', f.exact ? [f.location_id] : locSubtree(f.location_id))
   if (f.kind) qb = qb.eq('kind', f.kind)
   if (f.stock) qb = qb.eq('stock_state', f.stock)
   if (f.tag) qb = qb.contains('tags', [f.tag])
@@ -99,11 +105,46 @@ export async function fetchActivity(itemId: string, limit = 40): Promise<Activit
 }
 
 /** Explicit move, logged with where it came from so the history reads like a sentence. */
-export async function moveItem(item: Item, locationId: string) {
+export async function moveItem(item: ItemWithImages, locationId: string) {
   if (item.location_id === locationId) return
+  if (item.location_id && (item.item_locations ?? []).some(r => r.location_id === item.location_id)) {
+    await moveQty(item.id, item.location_id, locationId, null)
+    return
+  }
   const { error } = await supabase.from('items').update({ location_id: locationId }).eq('id', item.id)
   if (error) throw error
   await supabase.from('activity').insert({ workspace_id: item.workspace_id, item_id: item.id, action: 'move', diff: { from: item.location_id, to: locationId } })
+}
+
+/** +/- in one place. Without a place it acts on the main one. Creates the place on the item when new. */
+export async function adjustQtyAt(itemId: string, locationId: string | null, delta: number): Promise<{ total: number; here: number }> {
+  const { data, error } = await supabase.rpc('adjust_qty_at', { p_item: itemId, p_loc: locationId, p_delta: delta })
+  if (error) throw error
+  const r = data as { total: number; here: number }
+  return { total: Number(r.total), here: Number(r.here) }
+}
+
+/** Moves some (or, with null, all) of what sits in one place to another. */
+export async function moveQty(itemId: string, from: string, to: string, qty: number | null): Promise<number> {
+  const { data, error } = await supabase.rpc('move_qty', { p_item: itemId, p_from: from, p_to: to, p_qty: qty })
+  if (error) throw error
+  return Number((data as { moved: number }).moved)
+}
+
+/** Forgets an empty place on an item that still lives somewhere else. */
+export async function pruneItemLocation(item: ItemWithImages, locationId: string) {
+  const rows = item.item_locations ?? []
+  const row = rows.find(r => r.location_id === locationId)
+  if (!row || Number(row.qty) > 0 || rows.length < 2) return
+  const { error } = await supabase.from('item_locations').delete().eq('item_id', item.id).eq('location_id', locationId)
+  if (error) throw error
+}
+
+/** The places of one item, biggest first, then by name. */
+export function placesOf(item: ItemWithImages): ItemLoc[] {
+  const rows = (item.item_locations ?? []).map(r => ({ location_id: r.location_id, qty: Number(r.qty) }))
+  if (!rows.length && item.location_id) return [{ location_id: item.location_id, qty: Number(item.qty) }]
+  return rows.sort((a, b) => b.qty - a.qty || (a.location_id === item.location_id ? -1 : b.location_id === item.location_id ? 1 : 0))
 }
 
 export async function setCoverImage(item: Item, imageId: string) {
@@ -198,6 +239,7 @@ export async function requestAnalysis(item: ItemWithImages) {
     .select('id').single()
   if (error) throw error
   await supabase.functions.invoke('vision', { body: { job_id: job.id } })
+  void requestMatch(item.id)
 }
 
 /** Queues a background cleanup for one image and fires the function. Never throws: cleanup failing must not touch the item. */
@@ -233,12 +275,12 @@ export async function ensureCleanThumbs(ws: string): Promise<void> {
   for (const r of (data ?? []) as { id: string; item_id: string }[]) await requestClean(ws, r.item_id, r.id, true)
 }
 
-/** How many live items sit directly in each location. Rolling up to parents is done in the screen. */
+/** How many live items have something in each location. Rolling up to parents is done in the screen. */
 export async function locationCounts(ws: string): Promise<Record<string, number>> {
-  const { data, error } = await supabase.from('items').select('location_id').eq('workspace_id', ws).is('archived_at', null).limit(5000)
+  const { data, error } = await supabase.from('item_locations').select('location_id, items!inner(archived_at)').eq('workspace_id', ws).is('items.archived_at', null).limit(10000)
   if (error) throw error
   const out: Record<string, number> = {}
-  for (const r of (data ?? []) as { location_id: string | null }[]) if (r.location_id) out[r.location_id] = (out[r.location_id] ?? 0) + 1
+  for (const r of (data ?? []) as { location_id: string }[]) out[r.location_id] = (out[r.location_id] ?? 0) + 1
   return out
 }
 
@@ -268,3 +310,67 @@ export async function saveSecret(ws: string, key: string, value: string) {
   const { error } = await supabase.rpc('set_secret', { ws, k: key, v: value })
   if (error) throw error
 }
+
+/** Live items carrying this product barcode (digits compared without leading zeros). */
+export async function findByBarcode(ws: string, digits: string): Promise<ItemWithImages[]> {
+  const core = digits.replace(/\D/g, '').replace(/^0+/, '')
+  if (!core) return []
+  const { data, error } = await supabase.from('items').select(ITEM_COLS).eq('workspace_id', ws).is('archived_at', null).like('barcode', `%${core}`).limit(20)
+  if (error) throw error
+  return ((data ?? []) as unknown as ItemWithImages[]).filter(it => sameBarcode(it.barcode, digits))
+}
+
+// ── sprint 3 · twins ──────────────────────────────────────────────────────────────────────────────────
+
+/** Asks OKI to look for twins of one item (database first, photos only for real candidates). Never throws. */
+export async function requestMatch(itemId: string): Promise<void> {
+  try { await supabase.functions.invoke('match', { body: { item_id: itemId } }) } catch { /* ignore */ }
+}
+
+/** Open pairs touching any of these items: not decided, still scoring, and not judged unrelated. */
+export async function openMatches(ids: string[]): Promise<ItemMatch[]> {
+  if (!ids.length) return []
+  const list = ids.join(',')
+  const { data, error } = await supabase.from('item_matches').select('*')
+    .or(`item_a.in.(${list}),item_b.in.(${list})`).is('decision', null).gt('score', 0).limit(500)
+  if (error) throw error
+  return ((data ?? []) as ItemMatch[]).filter(m => m.verdict !== 'unrelated')
+}
+
+/** Every open pair in the workspace, after rescoring everything (the duplicates screen). */
+export async function scanWorkspaceMatches(ws: string, rescan = true): Promise<ItemMatch[]> {
+  if (rescan) { const { error: e1 } = await supabase.rpc('scan_matches', { p_ws: ws }); if (e1) throw e1 }
+  const { data, error } = await supabase.from('item_matches').select('*').eq('workspace_id', ws).is('decision', null).gt('score', 0).order('score', { ascending: false }).limit(1000)
+  if (error) throw error
+  return ((data ?? []) as ItemMatch[]).filter(m => m.verdict !== 'unrelated')
+}
+
+export async function fetchItems(ids: string[]): Promise<ItemWithImages[]> {
+  if (!ids.length) return []
+  const { data, error } = await supabase.from('items').select(ITEM_COLS).in('id', ids)
+  if (error) throw error
+  return (data ?? []) as unknown as ItemWithImages[]
+}
+
+export async function decideMatch(a: string, b: string, decision: 'near' | 'dismissed' | null) {
+  const [x, y] = a < b ? [a, b] : [b, a]
+  const { error } = await supabase.from('item_matches').update({ decision, decided_at: decision ? new Date().toISOString() : null }).eq('item_a', x).eq('item_b', y)
+  if (error) throw error
+}
+
+/** One line instead of two: quantities per place, photos and new tags move into `into`; `from` is archived. */
+export async function mergeItems(from: string, into: string) {
+  const { error } = await supabase.rpc('merge_items', { p_src: from, p_dst: into })
+  if (error) throw error
+}
+
+/** Undo of mergeItems: everything goes back, and places the merge added to `into` are forgotten again. */
+export async function unmergeItems(from: string) {
+  const { data, error } = await supabase.rpc('unmerge_items', { p_src: from })
+  if (error) throw error
+  const r = data as { into: string; fresh: string[] }
+  if (r?.fresh?.length) await supabase.from('item_locations').delete().eq('item_id', r.into).eq('qty', 0).in('location_id', r.fresh)
+}
+
+/** The id of the other item in a pair. */
+export const otherOf = (m: ItemMatch, id: string) => (m.item_a === id ? m.item_b : m.item_a)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X, ImagePlus, Loader2, WifiOff, Check } from 'lucide-react'
+import { X, ImagePlus, Loader2, WifiOff, Check, ScanLine, Barcode } from 'lucide-react'
 import { useT } from '../i18n'
 import { navigate } from '../lib/router'
 import { useStore } from '../lib/store'
@@ -11,6 +11,9 @@ import { toast } from '../components/Toast'
 import { pickBackCamera, squareFromFile, squareFromVideo } from '../lib/image'
 import { enqueue, useQueue, listQueue, type QueuedShot } from '../lib/queue'
 import { play, vibrate } from '../lib/sound'
+import { useScanLoop } from '../lib/camera'
+import { classify, productBarcode } from '../lib/scan'
+import { locById } from '../lib/store'
 
 const LS_LOC = 'tz.capture.loc'
 
@@ -46,6 +49,13 @@ export function Capture() {
     } catch { return null }
   })
   const [online, setOnline] = useState(navigator.onLine)
+  // a barcode scanned just before (/capture?barcode=...): the next new item carries it
+  const [presetBarcode, setPresetBarcode] = useState<string | null>(() => { try { return new URLSearchParams(window.location.search).get('barcode') } catch { return null } })
+  // "scan the drawer": the viewfinder reads a place label and sets where you stand
+  const [scanMode, setScanMode] = useState(false)
+  // a place label seen in the frame while shooting: offered, never switched on its own
+  const [suggest, setSuggest] = useState<{ id: string; seen: number } | null>(null)
+  const [lastCode, setLastCode] = useState<string | null>(null)
 
   // the saved location must still exist
   useEffect(() => { if (loc && locations.length && !locations.some(l => l.id === loc)) setLoc(null) }, [loc, locations])
@@ -92,7 +102,27 @@ export function Capture() {
     return () => { urlsRef.current.forEach(u => URL.revokeObjectURL(u)); urlsRef.current = [] }
   }, [])
 
-  const chooseLoc = (id: string) => { setLoc(id); try { localStorage.setItem(LS_LOC, id) } catch { /* ignore */ } }
+  const chooseLoc = (id: string) => { setLoc(id); setSuggest(null); try { localStorage.setItem(LS_LOC, id) } catch { /* ignore */ } }
+
+  useScanLoop(videoRef, !camErr && !pickOpen && !qtyOpen, found => {
+    for (const f of found) {
+      const hit = classify(f.rawValue)
+      if (hit.kind !== 'location') continue
+      const place = locations.find(l => l.code?.toLowerCase() === hit.code.toLowerCase())
+      if (!place) { if (scanMode) toast(t('loc.badcode', { code: hit.code }), 'err'); continue }
+      if (scanMode) {
+        chooseLoc(place.id); setScanMode(false); vibrate(40); play('found')
+        toast(t('capture.scan.set', { code: place.code }), 'ok')
+      } else if (place.id !== loc) setSuggest({ id: place.id, seen: Date.now() })
+      return
+    }
+  }, scanMode ? 200 : 700, !scanMode)
+  // the offer fades once the label has been out of the frame for a few seconds
+  useEffect(() => {
+    if (!suggest) return
+    const id = window.setTimeout(() => setSuggest(s => s && Date.now() - s.seen > 3500 ? null : s), 4000)
+    return () => window.clearTimeout(id)
+  }, [suggest])
 
   /** The captured frame flies from the viewfinder into the recent strip, the way a phone camera does. */
   const fly = useCallback((url: string) => {
@@ -129,16 +159,21 @@ export function Capture() {
     if (!file && (!v || !v.videoWidth)) return
     setBusy(true)
     try {
+      const isNewItem = !target && !(angleMode && lastShot)
+      // a product barcode in the frame is read on the phone, free and silent, and travels with the item
+      const barcode = isNewItem ? (presetBarcode ?? (file ? null : await productBarcode(v!))) : null
       const shot = file ? await squareFromFile(file) : await squareFromVideo(v!)
       vibrate(30); play('capture')
       setFlash(true); setTimeout(() => setFlash(false), 140)
       const isAngle = Boolean(target) || Boolean(angleMode && lastShot)
       const queued = await enqueue({
         ws: workspace.id, blob: shot.blob, thumb: shot.thumb, width: shot.width, height: shot.height,
-        location_id: loc, qty, angle: isAngle ? 'side' : 'front',
+        location_id: loc, qty, angle: isAngle ? 'side' : 'front', barcode,
         item_id: target ? target.id : isAngle ? lastShot!.item_id : crypto.randomUUID(),
       })
       setLastShot(queued)
+      if (barcode) { setLastCode(barcode); setPresetBarcode(null) }
+      else if (isNewItem) setLastCode(null)
       setAngleMode(false)
       setQty(1)
       if (!isAngle) { setCount(c => c + 1); setPop(true); setTimeout(() => setPop(false), 260) }
@@ -149,7 +184,7 @@ export function Capture() {
     } catch (e) {
       toast(String((e as Error).message || t('common.error')), 'err')
     } finally { setBusy(false) }
-  }, [workspace, loc, qty, angleMode, lastShot, target, t, fly])
+  }, [workspace, loc, qty, angleMode, lastShot, target, t, fly, presetBarcode])
 
   // mark recents as uploaded when the queue drains
   useEffect(() => {
@@ -172,7 +207,10 @@ export function Capture() {
   return (
     <div className="capture">
       <div className="capture-top">
-        <LocChip id={loc} onClick={() => setPickOpen(true)} placeholder={t('capture.pickloc')} />
+        <div className="row" style={{ gap: 8, minInlineSize: 0 }}>
+          <LocChip id={loc} onClick={() => setPickOpen(true)} placeholder={t('capture.pickloc')} />
+          <button type="button" className="capture-close icon" aria-pressed={scanMode} aria-label={t('capture.scan')} title={t('capture.scan')} onClick={() => setScanMode(m => !m)}><ScanLine size={20} /></button>
+        </div>
         <div className="row" style={{ gap: 8 }}>
           {!online && <span className="pending-badge"><WifiOff size={14} /> {t('common.offline')}</span>}
           {count > 0 && (
@@ -193,9 +231,16 @@ export function Capture() {
             </div>
           ) : <video ref={videoRef} playsInline muted autoPlay />}
           <div className="grid" aria-hidden="true" />
+          {scanMode && <div className="reticle" aria-hidden="true"><i /><i /><i /><i /></div>}
+          {suggest && !scanMode && (
+            <button type="button" className="loc-suggest" onClick={() => { chooseLoc(suggest.id); vibrate(30); toast(t('capture.scan.set', { code: locById(suggest.id)?.code ?? '' }), 'ok') }}>
+              <ScanLine size={16} /> {t('capture.scan.suggest', { code: locById(suggest.id)?.code ?? '' })}
+            </button>
+          )}
+          {(presetBarcode || lastCode) && !scanMode && <span className="code-badge"><Barcode size={14} /> <span className="mono">{presetBarcode ?? lastCode}</span></span>}
           <div className={`flash ${flash ? 'on' : ''}`} aria-hidden="true" />
         </div>
-        <p className="capture-hint">{target ? t('capture.forItem', { name: target.name }) : angleMode ? t('capture.hint.again') : t('capture.hint')}</p>
+        <p className="capture-hint">{scanMode ? t('capture.scan.hint') : target ? t('capture.forItem', { name: target.name }) : angleMode ? t('capture.hint.again') : t('capture.hint')}</p>
       </div>
 
       <div className="recent" ref={stripRef} aria-label={t('capture.recent')}>

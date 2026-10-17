@@ -47,7 +47,7 @@ export function Locations({ id }: { id?: string }) {
   useEffect(() => {
     if (!workspace || !id) { setItems(null); return }
     setItems(null)
-    void searchItems(workspace.id, { location_id: id }).then(setItems).catch(() => setItems([]))
+    void searchItems(workspace.id, { location_id: id, exact: true }).then(setItems).catch(() => setItems([]))
   }, [workspace, id])
   useEffect(() => { if (here) setDraft({ name: here.name, kind: here.kind, color: here.color ?? '' }) }, [here?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -179,7 +179,7 @@ export function Locations({ id }: { id?: string }) {
               {items.map(it => (
                 <button key={it.id} type="button" className="grid-card" onClick={() => navigate(`/item/${it.id}`)}>
                   <Pic className="gpic" image={coverImage(it.item_images, it.cover_image_id)} category={it.category_id} />
-                  <div className="b"><span className="name">{it.name || t('stage.inbox')}</span><span className="mono" style={{ fontSize: 'var(--fs-sm)' }}>{it.qty}</span></div>
+                  <div className="b"><span className="name">{it.name || t('stage.inbox')}</span><span className="mono" style={{ fontSize: 'var(--fs-sm)' }}>{(() => { const here = (it.here ?? []).reduce((a, r) => a + Number(r.qty), 0); return here !== Number(it.qty) ? `${here}/${it.qty}` : it.qty })()}</span></div>
                 </button>
               ))}
             </div>
