@@ -442,3 +442,4 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 .match-head > :not(.match-text) { flex: none; }
 [dir="rtl"] svg.lucide-move-right { transform: scaleX(-1); }
 .plus-one { font-family: var(--font-mono); font-weight: 700; direction: ltr; unicode-bidi: isolate; }
+.dup-group.family { background: var(--surface); box-shadow: none; border: 1.5px dashed var(--line); }

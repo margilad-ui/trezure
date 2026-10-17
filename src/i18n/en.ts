@@ -365,4 +365,12 @@ export const en: Record<Key, string> = {
   'dup.different': 'These are different',
   'dup.merged': '{n} merged into {name}',
   'dup.apart': 'OKI will not show them together again',
+  'hist.move.n': '{n} moved from {from} to {to}',
+  'hist.qty.at': '{delta} in {code}, now {here} there and {qty} in total',
+  'hist.merge': 'Merged in: {name} ({n})',
+  'hist.unmerge': 'Merge undone',
+  'places.add.title': 'Where else is it',
+  'places.move.where': 'Move to where',
+  'dup.family.h': 'Alike, not doubled',
+  'dup.family.ok': 'Got it, they differ',
 }

@@ -15,8 +15,8 @@ export function pushRecent(id: string) {
   try { localStorage.setItem(LS_RECENT, JSON.stringify(r)) } catch { /* ignore */ }
 }
 
-type Props = { open: boolean; onClose: () => void; onPick: (id: string) => void; allowCreate?: boolean }
-export function LocationPicker({ open, onClose, onPick, allowCreate = true }: Props) {
+type Props = { open: boolean; onClose: () => void; onPick: (id: string) => void; allowCreate?: boolean; title?: string }
+export function LocationPicker({ open, onClose, onPick, allowCreate = true, title }: Props) {
   const { t, lang } = useT()
   const { locations, workspace } = useStore()
   const [q, setQ] = useState('')
@@ -63,7 +63,7 @@ export function LocationPicker({ open, onClose, onPick, allowCreate = true }: Pr
   )
 
   return (
-    <Sheet open={open} onClose={onClose} title={t('capture.pickloc')}>
+    <Sheet open={open} onClose={onClose} title={title ?? t('capture.pickloc')}>
       {creating !== null ? (
         <div className="stack">
           <div className="meta">{creating ? locLabel(creating) : t('capture.all')}</div>
@@ -75,7 +75,7 @@ export function LocationPicker({ open, onClose, onPick, allowCreate = true }: Pr
         </div>
       ) : (
         <>
-          <div className="search-bar"><Search size={20} /><input className="tz-input" value={q} onChange={e => setQ(e.target.value)} placeholder={t('common.search')} /></div>
+          <div className="search-bar"><Search size={20} /><input className="tz-input" value={q} onChange={e => setQ(e.target.value)} placeholder={t('common.search')} autoFocus={window.matchMedia('(hover: hover) and (pointer: fine)').matches} /></div>
           {!q && recent.length > 0 && <>
             <div className="tz-label">{t('capture.recent')}</div>
             <div className="list">{recent.map(l => <Row key={l.id} l={l} />)}</div>

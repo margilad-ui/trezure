@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Camera, Check, MoveRight, Plus, Minus, Archive, Copy, Sparkles, Clock } from 'lucide-react'
+import { Camera, Check, MoveRight, Plus, Minus, Archive, Copy, Sparkles, Clock, Combine, Undo2 } from 'lucide-react'
 import { useT, type Key } from '../i18n'
-import { locLabel } from '../lib/store'
+import { locLabel, locById } from '../lib/store'
 import { fetchActivity, type ActivityRow } from '../lib/api'
 
 const ICON: Record<string, typeof Camera> = {
-  create: Check, move: MoveRight, qty: Plus, archive: Archive, duplicate: Copy, clean: Sparkles, capture: Camera,
+  create: Check, move: MoveRight, qty: Plus, archive: Archive, duplicate: Copy, clean: Sparkles, capture: Camera, merge: Combine, unmerge: Undo2,
 }
 
 /** The item's timeline. Quiet by default: one line per event, newest first. */
@@ -18,8 +18,13 @@ export function History({ itemId, createdAt }: { itemId: string; createdAt?: str
   const fmt = (iso: string) => new Date(iso).toLocaleString(lang === 'he' ? 'he-IL' : 'en-GB', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
   const line = (r: ActivityRow) => {
     const d = (r.diff ?? {}) as Record<string, unknown>
-    if (r.action === 'move') return t('hist.move', { from: locLabel(d.from as string) || t('hist.nowhere'), to: locLabel(d.to as string) || t('hist.nowhere') })
-    if (r.action === 'qty') return t('hist.qty', { delta: Number(d.delta) > 0 ? `+${d.delta}` : String(d.delta), qty: String(d.qty) })
+    if (r.action === 'move') return d.qty != null
+      ? t('hist.move.n', { n: String(d.qty), from: locLabel(d.from as string) || t('hist.nowhere'), to: locLabel(d.to as string) || t('hist.nowhere') })
+      : t('hist.move', { from: locLabel(d.from as string) || t('hist.nowhere'), to: locLabel(d.to as string) || t('hist.nowhere') })
+    if (r.action === 'qty') return d.loc
+      ? t('hist.qty.at', { delta: Number(d.delta) > 0 ? `+${d.delta}` : String(d.delta), code: locById(d.loc as string)?.code ?? '', here: String(d.here), qty: String(d.qty) })
+      : t('hist.qty', { delta: Number(d.delta) > 0 ? `+${d.delta}` : String(d.delta), qty: String(d.qty) })
+    if (r.action === 'merge') return t('hist.merge', { name: String(d.name || t('remove.untitled')), n: String((d.rows as { qty: number }[] | undefined)?.reduce((a, x) => a + Number(x.qty), 0) ?? 0) })
     return t(`hist.${r.action}` as Key)
   }
 

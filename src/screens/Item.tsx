@@ -252,7 +252,8 @@ export function ItemScreen({ id }: { id: string }) {
         </div>
       </div>
       <History key={histKey} itemId={it.id} createdAt={it.created_at} />
-      <LocationPicker open={locPick !== null} onClose={() => { setLocPick(null) }} onPick={id => {
+      <LocationPicker open={locPick !== null} onClose={() => { setLocPick(null) }}
+        title={locPick === 'add' ? t('places.add.title') : locPick === 'duplicate' ? t('item.duplicate') : t('places.move.where')} onPick={id => {
         if (locPick === 'duplicate') void duplicate(id)
         else if (locPick === 'add') void addPlace(id)
         else if (locPick === 'moveFrom' && moving) { if (moving.from.qty > 1) setMoving({ ...moving, to: id }); else void doMove(moving.from.location_id, id, null) }

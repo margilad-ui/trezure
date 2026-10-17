@@ -363,6 +363,14 @@ export const he = {
   'dup.different': 'אלה שונים',
   'dup.merged': '{n} אוחדו לתוך {name}',
   'dup.apart': 'OKI לא יציג אותם יחד שוב',
+  'hist.move.n': '{n} הועברו מ{from} אל {to}',
+  'hist.qty.at': 'כמות {delta} ב {code}, עכשיו {here} שם ו {qty} בסך הכל',
+  'hist.merge': 'אוחד לתוכו: {name} ({n})',
+  'hist.unmerge': 'האיחוד בוטל',
+  'places.add.title': 'איפה עוד יש ממנו',
+  'places.move.where': 'לאן להעביר',
+  'dup.family.h': 'דומים, לא כפולים',
+  'dup.family.ok': 'הבנתי, הם שונים',
 } as const
 
 export type Key = keyof typeof he

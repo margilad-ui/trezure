@@ -10,7 +10,7 @@ import { toast } from '../components/Toast'
 import { navigate } from '../lib/router'
 import { play } from '../lib/sound'
 
-type Group = { key: string; ids: string[]; pairs: ItemMatch[] }
+type Group = { key: string; ids: string[]; pairs: ItemMatch[]; family?: boolean }
 
 /** Items linked by any open pair end up in one group (union find), so three copies show up as one decision. */
 function groupPairs(pairs: ItemMatch[]): Group[] {
@@ -75,7 +75,14 @@ export function Duplicates() {
     })()
   }, [pairs, load])
 
-  const groups = useMemo(() => groupPairs(pairs ?? []), [pairs])
+  // doubles (same, or not judged yet) and look-alikes are separate decisions, so they are separate groups
+  const groups = useMemo(() => {
+    const ps = pairs ?? []
+    const dbl = groupPairs(ps.filter(p => p.verdict !== 'family'))
+    const fam = groupPairs(ps.filter(p => p.verdict === 'family')).map(g => ({ ...g, key: 'f' + g.key, family: true }))
+    return [...dbl, ...fam]
+  }, [pairs])
+  const firstFamily = groups.findIndex(g => g.family)
 
   const keeperOf = (g: Group) => keeper[g.key] ?? g.ids.slice().sort((a, b) => {
     const x = items.get(a), y = items.get(b)
@@ -134,17 +141,19 @@ export function Duplicates() {
       )}
 
       <div className="stack" style={{ gap: 14 }}>
-        {groups.map(g => {
+        {groups.map((g, gi) => {
           const k = keeperOf(g)
           const anySame = g.pairs.some(isSame)
           const pending = g.pairs.some(p => !p.verdict && p.signals?.barcode !== 'same')
           const n = g.ids.filter(id => isIn(g, id)).length
           const reasons = g.pairs.filter(p => (lang === 'he' ? p.reason_he : p.reason_en ?? p.reason_he))
           return (
-            <div key={g.key} className="tz-card dup-group">
+            <div key={g.key} className="stack" style={{ gap: 10 }}>
+            {gi === firstFamily && <h2 className="loc-sub">{t('dup.family.h')}</h2>}
+            <div className={`tz-card dup-group ${g.family ? 'family' : ''}`}>
               <div className="oki-line">
                 <Oki size={36} expression={pending ? 'thinking' : anySame ? 'ok' : 'unsure'} />
-                <p>{pending ? t('dup.g.pending') : anySame ? t('dup.g.same') : t('dup.g.family')}</p>
+                <p>{pending ? t('dup.g.pending') : g.family ? t('dup.g.family') : anySame ? t('dup.g.same') : t('dup.g.family')}</p>
               </div>
               <div className="dup-items">
                 {g.ids.map(id => {
@@ -181,8 +190,9 @@ export function Duplicates() {
                 <button type="button" className="tz-btn sm" disabled={!n || busy === g.key} onClick={() => void mergeGroup(g)}>
                   {busy === g.key ? <Loader2 size={16} className="spin" /> : <Combine size={16} />} {n ? t('dup.merge', { n, name: items.get(k)?.name || t('remove.untitled') }) : t('dup.merge.none')}
                 </button>
-                <button type="button" className="tz-btn ghost sm" disabled={busy === g.key} onClick={() => void different(g)}><X size={16} /> {t('dup.different')}</button>
+                <button type="button" className="tz-btn ghost sm" disabled={busy === g.key} onClick={() => void different(g)}><X size={16} /> {g.family ? t('dup.family.ok') : t('dup.different')}</button>
               </div>
+            </div>
             </div>
           )
         })}
