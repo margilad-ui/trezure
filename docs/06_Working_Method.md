@@ -1,6 +1,6 @@
 # TREZURE · שיטת העבודה של גילעד וקלוד
 
-**עודכן:** 17 באוקטובר 2026, 17:50. המסמך הזה נועד לשיחה חדשה: לקרוא אותו ולהתנהג כאילו היית כאן מההתחלה. הוא ממשיך את 06 של BRICK Shop ומוסיף את מה שנלמד כאן ביומיים הראשונים.
+**עודכן:** 18 באוקטובר 2026, 23:40. המסמך הזה נועד לשיחה חדשה: לקרוא אותו ולהתנהג כאילו היית כאן מההתחלה. הוא ממשיך את 06 של BRICK Shop ומוסיף את מה שנלמד כאן ביומיים הראשונים.
 
 ## מי זה גילעד, בהקשר הזה
 
@@ -45,6 +45,8 @@
 - **תמונות:** מהמצלמה, מוקטנות בדפדפן (1600px WebP), ל Storage `images`, נתיבים אקראיים. נכסי מותג ב `brand`.
 - **RTL:** תמיד מאפיינים לוגיים, grid עם `min-width:0`, `overflow-x` חסום ב html. מונו תמיד LTR.
 - **הסורק:** BarcodeDetector מובנה כשיש, אחרת ZXing ב WASM (`barcode-detector/ponyfill`, הקובץ נשלח עם האפליקציה ולא מ CDN, ולא נכנס למטמון ה PWA). `src/lib/scan.ts` מסווג קוד: תווית מקום (`/l/<code>`), תווית פריט (`/item/<id>`), ברקוד. `src/lib/camera.ts`: מצלמה ולולאת סריקה. מסך הצילום משתמש רק בקורא המובנה.
+- **הדפסה ישירה:** `src/lib/niimbot.ts` על niimbluelib. כל עמוד ברוחב 384, ממורכז, 1 ביט. תבנית חדשה נכנסת ל `SIZES` ו `SIZES_FOR` ב `label.ts` עם `rotate`. אי אפשר לבדוק הדפסה מהסשן; גילעד מדפיס, ו `scripts/dev/labels-shot.mjs` מצלם את הגלריה כולל העמוד שנשלח למדפסת.
+- **תוויות חשמל:** `03_Labels/electric/source` (art.py לאילוסטרציות, build.py לרשימה). להוסיף תווית: שורה ב build.py, ואז build, render, mono.
 - **בדיקות חיות:** הדפדפן המובנה של אפליקציית Claude (`Claude_Browser`), או Claude in Chrome כשכרום של גילעד פתוח (לבדוק שוב אם "not connected"; הוא מתחבר כשגילעד פותח כרום). הסשן ו `device_bash` לא מגיעים ל github.io, supabase.co, cdn.openart.ai. שניהם לא פותחים file://.
 - **סקירה מקומית:** Playwright בסשן (`/opt/pw-browsers/chromium`, `npm i playwright@1.49.1`) לצילומי HTML ולרינדור PNG. פונטים מ `@fontsource/*` ב node_modules.
 - **לגילעד:** `SendUserFile` לתצוגה בצ'אט, `device_commit_files` לתיקיית הפרויקט (מ `/mnt/user-data/outputs`), `project_write` לפרויקט. קבצים מהתיקייה אל הסשן: `device_stage_files`. פקודות על המחשב שלו: `device_bash` (התיקייה ב `$HOME/mnt/THE ORGINAIZUR`).
@@ -73,6 +75,6 @@
 
 > ממשיכים את TREZURE (הפרויקט THE ORGINAIZUR). קרא קודם את 06_Working_Method, ואז 04 ו 05 מהפרויקט ב claude.ai (או מהתיקייה `THE ORGINAIZUR\00_Project_Docs`). 00, 02, 03 ו 10 לפי הצורך.
 >
-> מצב: האפליקציה באוויר ובשימוש ב https://margilad-ui.github.io/trezure/ , ריפו `margilad-ui/trezure`, Supabase `organizur` (ref `tkacgqckejabgnlzdujx`) עם פונקציות assets, vision, clean ו match. **ספרינט 3 בוצע 17.10:** כמות לכל מיקום (`item_locations`), סורק, סריקת תווית מגירה ממסך הצילום, OKI שמזהה תאום בסידור עם איחוד ו"בטל", ומסך כפילויות. ההחלטות D64 עד D78 ב 02.
+> מצב: האפליקציה באוויר ובשימוש ב https://margilad-ui.github.io/trezure/ , ריפו `margilad-ui/trezure`, Supabase `organizur` (ref `tkacgqckejabgnlzdujx`) עם פונקציות assets, vision, clean ו match. **ספרינט 3 בוצע 17.10, והדפסה ישירה ל NIIMBOT וקופסאות BX ב 18.10 (D79 עד D85).** כמות לכל מיקום (`item_locations`), סורק, סריקת תווית מגירה ממסך הצילום, OKI שמזהה תאום בסידור עם איחוד ו"בטל", ומסך כפילויות. ההחלטות D64 עד D78 ב 02.
 >
 > חבר את הריפו (`add_repo` + clone ל `/home/claude/trezure`) ואת התיקייה, בדוק מצב חי ב Supabase, **ותגיב למה שכתוב ותחכה ל"לך" לפני שאתה בונה.**
