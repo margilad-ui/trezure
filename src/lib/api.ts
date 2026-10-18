@@ -286,6 +286,8 @@ export async function locationCounts(ws: string): Promise<Record<string, number>
 
 /** Creates a location under a parent. The code is derived from the parent so labels stay readable: OF-03-02. */
 export async function createLocation(ws: string, parentId: string | null, name: string, kind: string, parentCode?: string, siblings = 0): Promise<string> {
+  // boxes move, so they get a code of their own (BX-0007) instead of one derived from where they stand
+  if (kind === 'box') return (await createBoxes(ws, parentId, 1, name))[0]
   const code = parentCode ? `${parentCode}-${String(siblings + 1).padStart(2, '0')}` : name.slice(0, 2).toUpperCase()
   const { data, error } = await supabase.from('locations').insert({ workspace_id: ws, parent_id: parentId, name: name.trim(), kind, code, sort: siblings }).select('id').single()
   if (error) throw error
@@ -374,3 +376,44 @@ export async function unmergeItems(from: string) {
 
 /** The id of the other item in a pair. */
 export const otherOf = (m: ItemMatch, id: string) => (m.item_a === id ? m.item_b : m.item_a)
+
+// ── boxes ──────────────────────────────────────────────────────────────────────────────────────────────
+
+/** The next free box codes in this workspace: BX-0001, BX-0002, ... */
+export async function nextBoxCodes(ws: string, n: number): Promise<string[]> {
+  const { data, error } = await supabase.from('locations').select('code').eq('workspace_id', ws).like('code', 'BX-%').limit(10000)
+  if (error) throw error
+  let max = 0
+  for (const r of (data ?? []) as { code: string }[]) { const m = r.code.match(/^BX-(\d+)$/); if (m) max = Math.max(max, Number(m[1])) }
+  return Array.from({ length: n }, (_, i) => `BX-${String(max + i + 1).padStart(4, '0')}`)
+}
+
+/**
+ * Creates n boxes. With a parent they are placed; without one they wait (pending) until their label is
+ * scanned for the first time and someone says where they are. Retries once if another device took a code.
+ */
+export async function createBoxes(ws: string, parentId: string | null, n: number, name = ''): Promise<string[]> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const codes = await nextBoxCodes(ws, n)
+    const rows = codes.map(code => ({ workspace_id: ws, parent_id: parentId, kind: 'box', code, name: name.trim(), pending: !parentId, sort: 0 }))
+    const { data, error } = await supabase.from('locations').insert(rows).select('id')
+    if (!error) return ((data ?? []) as { id: string }[]).map(r => r.id)
+    if (!/duplicate|unique/i.test(error.message) || attempt) throw error
+  }
+  return []
+}
+
+/** A box found on a shelf for the first time: it now has a place (and maybe a name). */
+export async function placeBox(id: string, parentId: string, name?: string) {
+  const patch: Record<string, unknown> = { parent_id: parentId, pending: false }
+  if (name !== undefined) patch.name = name.trim()
+  const { error } = await supabase.from('locations').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+/** A box label printed elsewhere (or before the box existed): creates exactly that code, waiting for a place. */
+export async function createBoxWithCode(ws: string, code: string): Promise<string> {
+  const { data, error } = await supabase.from('locations').insert({ workspace_id: ws, parent_id: null, kind: 'box', code, name: '', pending: true, sort: 0 }).select('id').single()
+  if (error) throw error
+  return data.id as string
+}

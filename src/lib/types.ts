@@ -9,6 +9,8 @@ export interface Location {
   id: string; workspace_id: string; parent_id: string | null
   kind: 'site' | 'room' | 'cabinet' | 'shelf' | 'box' | 'drawer' | 'other'
   name: string; code: string; color: string | null; sort: number; photo_path: string | null; path: string | null
+  /** a box whose label exists but whose place is not known yet */
+  pending?: boolean
 }
 
 export interface FieldDef {

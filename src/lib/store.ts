@@ -139,9 +139,9 @@ export function locById(id: string | null | undefined): Location | undefined {
 /** Full label for a location: "משרד · ארון 3". Sites alone show just the name. */
 export function locLabel(id: string | null | undefined): string {
   const l = locById(id); if (!l) return ''
-  const parts: string[] = [l.name]
+  const parts: string[] = [l.name?.trim() || l.code]
   let p = l.parent_id ? locById(l.parent_id) : undefined
-  while (p) { parts.unshift(p.name); p = p.parent_id ? locById(p.parent_id) : undefined }
+  while (p) { parts.unshift(p.name?.trim() || p.code); p = p.parent_id ? locById(p.parent_id) : undefined }
   return parts.join(' · ')
 }
 export function locColor(id: string | null | undefined): string {
@@ -155,4 +155,12 @@ export function locSubtree(id: string): string[] {
   const out: string[] = [id]
   for (let i = 0; i < out.length; i++) for (const l of state.locations) if (l.parent_id === out[i]) out.push(l.id)
   return out
+}
+
+/** What a label for this place says: the kind in words for the bar, the parent line (not for boxes, which
+ *  move), and a line to write on when a box has no name yet. */
+export function locLabelData(l: { id: string; kind: string; name: string; code: string; parent_id: string | null }, kindWord: string, url: string) {
+  const box = l.kind === 'box'
+  const parent = !box && l.parent_id ? locLabel(l.parent_id) : ''
+  return { name: l.name?.trim() || '', code: l.code, url, parent, kindLabel: kindWord, writeLine: box && !l.name?.trim() }
 }

@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
-import { X, Flashlight, ArrowLeft, Camera, MapPin, Loader2 } from 'lucide-react'
+import { X, Flashlight, ArrowLeft, Camera, MapPin, Loader2, Box } from 'lucide-react'
 import { useT } from '../i18n'
 import { navigate } from '../lib/router'
-import { useStore, locById, locLabel } from '../lib/store'
+import { useStore, locById, locLabel, refreshRefs } from '../lib/store'
 import { useBackCamera, useScanLoop } from '../lib/camera'
 import { classify, type ScanHit } from '../lib/scan'
-import { findByBarcode, adjustQtyAt, fetchItem, placesOf } from '../lib/api'
+import { findByBarcode, adjustQtyAt, fetchItem, placesOf, createBoxWithCode, placeBox } from '../lib/api'
 import type { ItemWithImages } from '../lib/types'
 import { LocChip } from '../components/LocChip'
 import { LocationPicker } from '../components/LocationPicker'
@@ -22,6 +22,7 @@ type Result =
   | { kind: 'unknown'; digits: string }
   | { kind: 'place'; id: string }
   | { kind: 'badplace'; code: string }
+  | { kind: 'newbox'; id: string }
   | { kind: 'foreign'; raw: string }
 
 /**
@@ -38,6 +39,7 @@ export function Scan() {
   const [pick, setPick] = useState(false)
   const [res, setRes] = useState<Result | null>(null)
   const [adding, setAdding] = useState<string | null>(null)
+  const [placeFor, setPlaceFor] = useState<string | null>(null)
   const last = useRef<{ raw: string; at: number }>({ raw: '', at: 0 })
 
   const setPlace = (id: string) => { setHere(id); try { localStorage.setItem(LS_LOC, id) } catch { /* ignore */ } }
@@ -48,6 +50,8 @@ export function Scan() {
     if (hit.kind === 'location') {
       const loc = locations.find(l => l.code?.toLowerCase() === hit.code.toLowerCase())
       if (!loc) { setRes({ kind: 'badplace', code: hit.code }); return }
+      // a box label seen for the first time: it needs a place before it can be "where I stand"
+      if (loc.pending) { play('found'); setRes({ kind: 'newbox', id: loc.id }); return }
       setPlace(loc.id); play('found'); setRes({ kind: 'place', id: loc.id })
       return
     }
@@ -115,7 +119,16 @@ export function Scan() {
             <button type="button" className="tz-btn sm" onClick={() => navigate(`/loc/${res.id}`)}>{t('scan.place.open')} {back}</button>
           </div>
         )}
-        {res?.kind === 'badplace' && <div className="scan-card warn"><Oki size={40} expression="unsure" /><p>{t('loc.badcode', { code: res.code })}</p></div>}
+        {res?.kind === 'badplace' && (/^BX-\d{1,6}$/i.test(res.code)
+          ? <div className="scan-card"><Oki size={44} expression="ok" pose="point" /><div className="grow"><p className="lead">{t('box.unknown.short')}</p><p className="meta mono">{res.code.toUpperCase()}</p></div><button type="button" className="tz-btn sm" onClick={() => workspace && void createBoxWithCode(workspace.id, res.code.toUpperCase()).then(async id => { await refreshRefs(); navigate(`/loc/${id}`) }).catch(e => toast(String((e as Error).message), 'err'))}><Box size={16} /> {t('box.create.short')}</button></div>
+          : <div className="scan-card warn"><Oki size={40} expression="unsure" /><p>{t('loc.badcode', { code: res.code })}</p></div>)}
+        {res?.kind === 'newbox' && (
+          <div className="scan-card">
+            <Oki size={44} expression="ok" pose="point" />
+            <div className="grow"><p className="lead">{t('box.where.short')}</p><p className="meta mono">{locById(res.id)?.code}</p></div>
+            <button type="button" className="tz-btn sm" onClick={() => setPlaceFor(res.id)}><MapPin size={16} /> {t('box.pick')}</button>
+          </div>
+        )}
         {res?.kind === 'foreign' && <div className="scan-card warn"><Oki size={40} expression="unsure" /><p>{t('scan.foreign')}</p></div>}
         {res?.kind === 'unknown' && (
           <div className="scan-card">
@@ -141,6 +154,10 @@ export function Scan() {
       </div>
 
       <LocationPicker open={pick} onClose={() => setPick(false)} onPick={setPlace} />
+      <LocationPicker open={Boolean(placeFor)} onClose={() => setPlaceFor(null)} title={t('box.pick')} onPick={pid => {
+        const id = placeFor; if (!id) return
+        void placeBox(id, pid).then(async () => { await refreshRefs(); setPlace(id); setRes({ kind: 'place', id }); toast(t('box.placed', { where: locLabel(pid) }), 'ok') }).catch(e => toast(String((e as Error).message), 'err'))
+      }} />
     </div>
   )
 }

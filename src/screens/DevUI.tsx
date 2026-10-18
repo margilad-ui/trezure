@@ -10,7 +10,8 @@ import { Logo } from '../components/Logo'
 import { OkiMark, Oki } from '../components/Oki'
 import { OkiHello } from '../components/OkiHello'
 import { Pic } from '../components/Pic'
-import { drawLabel, type LabelSize } from '../lib/label'
+import { drawLabel, SIZES, type LabelSize } from '../lib/label'
+import { toPage } from '../lib/niimbot'
 import { useStore } from '../lib/store'
 import { UNITS } from '../lib/seed'
 import { TagInput } from '../components/TagInput'
@@ -46,22 +47,32 @@ function LabelDemo() {
       ['50x30', { name: 'ארון 3 · מדף 2', code: 'OF-03-02', url: 'https://margilad-ui.github.io/trezure/l/OF-03-02', parent: 'משרד' }, 'location'],
       ['30x50', { name: 'קופסת חרוזים', code: 'OF-03-02-07', url: 'https://margilad-ui.github.io/trezure/l/OF-03-02-07', parent: 'ארון 3 · מדף 2' }, 'location'],
       ['50x30', { name: 'מסגרת תמונה לבנה RIBBA עם זכוכית', code: 'HM.ST.B01', url: 'https://margilad-ui.github.io/trezure/item/abcd' }, 'item'],
+      ['70x50', { name: 'מגירה 2', code: 'OF-D3-02', url: 'https://margilad-ui.github.io/trezure/l/OF-D3-02', parent: 'משרד · שידה 3', kindLabel: 'מגירה' }, 'location'],
+      ['70x50', { name: 'חוטים, כבלים ומטענים', code: 'BX-0007', url: 'https://margilad-ui.github.io/trezure/l/BX-0007', kindLabel: 'קופסה' }, 'location'],
+      ['70x50', { name: '', code: 'BX-0012', url: 'https://margilad-ui.github.io/trezure/l/BX-0012', kindLabel: 'קופסה', writeLine: true }, 'location'],
+      ['r31', { name: 'דבק חם', code: 'OF-D3-02.AB12', url: 'https://margilad-ui.github.io/trezure/item/ab12cd34-0000-0000-0000-000000000000' }, 'item'],
+      ['r31', { name: '', code: 'BX-0012', url: 'https://margilad-ui.github.io/trezure/l/BX-0012' }, 'location'],
     ]
     let dead = false
     void (async () => {
       const made: HTMLCanvasElement[] = []
       for (const [size, data, kind] of samples) {
         const c = await drawLabel(kind, size, data)
-        c.style.inlineSize = size === '50x30' ? '50mm' : '30mm'
-        c.style.blockSize = size === '50x30' ? '30mm' : '50mm'
-        c.className = 'label-canvas'
+        c.style.inlineSize = `${SIZES[size].w}mm`
+        c.style.blockSize = `${SIZES[size].h}mm`
+        c.className = `label-canvas${SIZES[size].round ? ' round' : ''}`
         made.push(c)
+        // and what actually goes to the printer: head wide, turned, pure black and white
+        const pg = toPage(c, SIZES[size].rotate, 384)
+        pg.style.inlineSize = '48mm'; pg.style.blockSize = `${(pg.height / 203) * 25.4}mm`
+        pg.className = 'label-canvas page'
+        made.push(pg)
       }
       if (!dead && box.current) box.current.replaceChildren(...made)
     })()
     return () => { dead = true }
   }, [])
-  return <div id="label-demo" ref={box} className="row" style={{ gap: 18, alignItems: 'flex-start', background: 'var(--surface2)', padding: 18, borderRadius: 12 }} />
+  return <div id="label-demo" ref={box} className="row" style={{ gap: 18, alignItems: 'flex-start', flexWrap: 'wrap', background: 'var(--surface2)', padding: 18, borderRadius: 12 }} />
 }
 
 function Card({ s, i }: { s: typeof SAMPLES[0]; i: number }) {

@@ -12,7 +12,23 @@ export const DPI = 203
 export const mm = (v: number) => Math.round((v / 25.4) * DPI)
 
 export type LabelKind = 'item' | 'location'
-export type LabelSize = '50x30' | '30x50'
+export type LabelSize = '50x30' | '30x50' | '70x50' | 'r31'
+
+/**
+ * Every template the app prints. w x h is the label as you read it; `rotate` says it goes through the
+ * printer turned a quarter (its short side lies across the head); `roll` is the roll it needs.
+ */
+export const SIZES: Record<LabelSize, { w: number; h: number; rotate: boolean; round?: boolean; roll: string }> = {
+  '50x30': { w: 50, h: 30, rotate: false, roll: '50×30' },
+  '30x50': { w: 30, h: 50, rotate: true, roll: '50×30' },
+  '70x50': { w: 70, h: 50, rotate: true, roll: '50×70' },
+  'r31': { w: 31, h: 31, rotate: false, round: true, roll: 'עגול 31' },
+}
+export const SIZES_FOR: Record<LabelKind, LabelSize[]> = {
+  location: ['70x50', '50x30', '30x50', 'r31'],
+  item: ['50x30', '30x50', 'r31'],
+}
+
 export interface LabelData {
   /** what the label is for */
   name: string
@@ -22,6 +38,10 @@ export interface LabelData {
   url: string
   /** second line for a location label: where it sits */
   parent?: string
+  /** what kind of place, in words, for the bar of the big label: "מגירה", "קופסה" */
+  kindLabel?: string
+  /** a box label with no name yet gets a line to write on with a marker */
+  writeLine?: boolean
 }
 
 const FONT_HE = 'Assistant, sans-serif'
@@ -99,7 +119,9 @@ function layoutName(
  * Draws one label. 50x30 is landscape (bar, then name and code beside a full height QR);
  * 30x50 is portrait (bar, name, QR, code), both straight from the approved round 2 geometry.
  */
-export async function drawLabel(_kind: LabelKind, size: LabelSize, d: LabelData): Promise<HTMLCanvasElement> {
+export async function drawLabel(kind: LabelKind, size: LabelSize, d: LabelData): Promise<HTMLCanvasElement> {
+  if (size === '70x50') return drawBig(d)
+  if (size === 'r31') return drawRound(kind, d)
   const land = size === '50x30'
   const W = mm(land ? 50 : 30), H = mm(land ? 30 : 50)
   const c = document.createElement('canvas')
@@ -176,6 +198,100 @@ export async function drawLabel(_kind: LabelKind, size: LabelSize, d: LabelData)
     x.direction = 'ltr'; x.textAlign = 'center'
     x.fillText(d.code, W / 2, codeBase)
   }
+  return c
+}
+
+function blank(W: number, H: number) {
+  const c = document.createElement('canvas')
+  c.width = W; c.height = H
+  const x = c.getContext('2d')!
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H)
+  x.textBaseline = 'alphabetic'
+  return { c, x }
+}
+
+/** Largest font (between max and min px) at which `text` fits `maxW`, in the given family and weight. */
+function fitPx(x: CanvasRenderingContext2D, text: string, maxW: number, maxPx: number, minPx: number, font: (px: number) => string): number {
+  for (let px = maxPx; px > minPx; px -= 1) { x.font = font(px); if (x.measureText(text).width <= maxW) return px }
+  x.font = font(minPx); return minPx
+}
+
+/**
+ * 70x50, for places: drawers, shelves, cabinets and boxes. Read from across the room. A black bar with the
+ * wordmark and the kind of place, a big QR on the left, and on the right the code in large mono, the name,
+ * and where it sits (left out for boxes, which move). A box without a name gets a line to write on.
+ */
+async function drawBig(d: LabelData): Promise<HTMLCanvasElement> {
+  const W = mm(70), H = mm(50)
+  const { c, x } = blank(W, H)
+  const barH = mm(8), pad = mm(2.4)
+  x.fillStyle = '#000'; x.fillRect(0, 0, W, barH)
+  const mark = await wordmark()
+  if (mark) {
+    const h = mm(5)
+    const w = h * ((mark.naturalWidth || 420) / (mark.naturalHeight || 110))
+    x.drawImage(mark, pad, (barH - h) / 2, w, h)
+  }
+  if (d.kindLabel) {
+    x.fillStyle = '#fff'; x.direction = 'rtl'; x.textAlign = 'right'
+    x.font = `700 ${mm(4.4)}px ${FONT_HE}`
+    x.fillText(d.kindLabel, W - pad, barH / 2 + mm(1.6))
+  }
+  x.fillStyle = '#000'
+
+  const qrSize = mm(30)
+  const qrY = barH + (H - barH - qrSize) / 2
+  x.drawImage(await qrCanvas(d.url, qrSize), pad, qrY, qrSize, qrSize)
+
+  const right = W - pad
+  const textW = right - (pad + qrSize + mm(3))
+  const top = barH + mm(2.2)
+  // the code, as large as the column allows
+  x.direction = 'ltr'; x.textAlign = 'right'
+  const codePx = fitPx(x, d.code, textW, mm(8.5), mm(4.2), px => `700 ${px}px ${FONT_MONO}`)
+  const codeBase = top + codePx * 0.8
+  x.fillText(d.code, right, codeBase)
+  x.direction = 'rtl'
+
+  const nameTop = codeBase + mm(2.4)
+  const bottom = H - mm(2.2)
+  const name = d.name?.trim()
+  if (name) {
+    const room = bottom - nameTop
+    const block = layoutName(x, { ...d, name }, textW, room, mm(6.4), mm(3.4), mm(3.4))
+    x.textAlign = 'right'
+    x.font = `700 ${block.px}px ${FONT_HE}`
+    block.lines.forEach((ln, i) => x.fillText(ln, right, nameTop + block.px * (0.82 + i * 1.05)))
+    if (block.parent) {
+      x.font = `400 ${mm(3.4)}px ${FONT_HE}`
+      x.fillText(block.parent, right, nameTop + block.px * (0.82 + block.lines.length * 1.05) + mm(0.8))
+    }
+  } else if (d.writeLine) {
+    // two lines to write the contents on, by hand
+    x.lineWidth = 3
+    for (const y of [bottom - mm(9), bottom - mm(1.5)]) { x.beginPath(); x.moveTo(right - textW, y); x.lineTo(right, y); x.stroke() }
+  }
+  return c
+}
+
+/**
+ * Round 31mm: the smallest label, for a single thing. Just the QR and a short code, both kept inside the
+ * circle with room to spare for a roll that sits a little off centre.
+ */
+async function drawRound(kind: LabelKind, d: LabelData): Promise<HTMLCanvasElement> {
+  const S = mm(31)
+  const { c, x } = blank(S, S)
+  const r = S / 2
+  const qrSize = mm(16.5)
+  const qrX = (S - qrSize) / 2, qrY = mm(5.2)
+  x.drawImage(await qrCanvas(d.url, qrSize), qrX, qrY, qrSize, qrSize)
+  // short code: for an item its own 4 letters, for a place its code
+  const code = kind === 'item' ? (d.code.split('.').pop() || d.code) : d.code
+  const base = qrY + qrSize + mm(4.2)
+  const half = Math.sqrt(r * r - (base - r) * (base - r)) - mm(1.2)
+  x.fillStyle = '#000'; x.direction = 'ltr'; x.textAlign = 'center'
+  fitPx(x, code, half * 2, mm(3.6), mm(2.9), px => `700 ${px}px ${FONT_MONO}`)
+  x.fillText(code, r, base)
   return c
 }
 

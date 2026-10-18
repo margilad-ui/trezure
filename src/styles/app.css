@@ -443,3 +443,14 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 [dir="rtl"] svg.lucide-move-right { transform: scaleX(-1); }
 .plus-one { font-family: var(--font-mono); font-weight: 700; direction: ltr; unicode-bidi: isolate; }
 .dup-group.family { background: var(--surface); box-shadow: none; border: 1.5px dashed var(--line); }
+
+/* direct printing */
+.print-sizes { justify-self: start; flex-wrap: wrap; }
+.label-preview.many { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.label-canvas.round { border-radius: 50%; }
+.print-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+.printer-line { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--dim); min-block-size: 44px; }
+.printer-line .grow { min-inline-size: 0; }
+.warn-line { background: color-mix(in srgb, var(--warning) 14%, var(--surface)); color: var(--ink); border-radius: var(--r-md); padding: 8px 12px; }
+.print-adv summary { cursor: pointer; min-block-size: 32px; display: flex; align-items: center; }
+.place-box { display: grid; gap: 12px; margin-block-end: 12px; border: 1.5px solid var(--teal-light); background: var(--teal-xlight); }
