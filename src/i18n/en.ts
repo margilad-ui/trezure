@@ -420,4 +420,9 @@ export const en: Record<Key, string> = {
   'box.unknown.short': 'A new box label',
   'box.create.code': 'Create {code}',
   'box.create.short': 'Create',
+  'capture.gallery': 'Upload photos from the gallery',
+  'capture.gallery.short': 'Gallery',
+  'capture.gallery.one': 'One photo added from the gallery',
+  'capture.gallery.added': '{n} photos added from the gallery, each as an item',
+  'capture.gallery.failed': '{n} photos could not be opened. Maybe a format the browser does not read',
 }

@@ -454,3 +454,6 @@ table.tbl img { inline-size: 48px; block-size: 48px; border-radius: var(--r-sm);
 .warn-line { background: color-mix(in srgb, var(--warning) 14%, var(--surface)); color: var(--ink); border-radius: var(--r-md); padding: 8px 12px; }
 .print-adv summary { cursor: pointer; min-block-size: 32px; display: flex; align-items: center; }
 .place-box { display: grid; gap: 12px; margin-block-end: 12px; border: 1.5px solid var(--teal-light); background: var(--teal-xlight); }
+.gallery-btn { flex: none; inline-size: 56px; block-size: 56px; border-radius: var(--r-md); border: 1.5px solid rgba(255,255,255,.35); background: rgba(255,255,255,.1); color: #fff; display: grid; place-items: center; align-content: center; gap: 2px; cursor: pointer; padding: 0; }
+.gallery-btn span { font-size: 12px; font-weight: 700; line-height: 1; }
+.gallery-btn:disabled { cursor: default; }

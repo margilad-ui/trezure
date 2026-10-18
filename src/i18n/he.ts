@@ -418,6 +418,11 @@ export const he = {
   'box.unknown.short': 'תווית קופסה חדשה',
   'box.create.code': 'צור את {code}',
   'box.create.short': 'צור',
+  'capture.gallery': 'העלה תמונות מהגלריה',
+  'capture.gallery.short': 'גלריה',
+  'capture.gallery.one': 'תמונה אחת נוספה מהגלריה',
+  'capture.gallery.added': '{n} תמונות נוספו מהגלריה, כל אחת כפריט',
+  'capture.gallery.failed': '{n} תמונות לא נפתחו. אולי פורמט שהדפדפן לא מכיר',
 } as const
 
 export type Key = keyof typeof he

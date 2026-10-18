@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X, ImagePlus, Loader2, WifiOff, Check, ScanLine, Barcode } from 'lucide-react'
+import { X, ImagePlus, Loader2, WifiOff, Check, ScanLine, Barcode, Images } from 'lucide-react'
 import { useT } from '../i18n'
 import { navigate } from '../lib/router'
 import { useStore } from '../lib/store'
@@ -8,7 +8,7 @@ import { LocationPicker } from '../components/LocationPicker'
 import { OkiMark } from '../components/Oki'
 import { Sheet } from '../components/Sheet'
 import { toast } from '../components/Toast'
-import { pickBackCamera, squareFromFile, squareFromVideo } from '../lib/image'
+import { pickBackCamera, squareFromFile, squareFromVideo, squareFitFromFile } from '../lib/image'
 import { enqueue, useQueue, listQueue, type QueuedShot } from '../lib/queue'
 import { play, vibrate } from '../lib/sound'
 import { useScanLoop } from '../lib/camera'
@@ -28,6 +28,8 @@ export function Capture() {
   const stripRef = useRef<HTMLDivElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState<{ done: number; total: number } | null>(null)
   const urlsRef = useRef<string[]>([])
   const [camErr, setCamErr] = useState(false)
   const [loc, setLoc] = useState<string | null>(() => { try { return localStorage.getItem(LS_LOC) } catch { return null } })
@@ -186,6 +188,42 @@ export function Capture() {
     } finally { setBusy(false) }
   }, [workspace, loc, qty, angleMode, lastShot, target, t, fly, presetBarcode])
 
+  /**
+   * Photos picked from the gallery. Each one becomes its own item in this place (or, from an item page,
+   * another angle of that item), goes through the same queue, analysis and cleanup as a camera shot.
+   */
+  const fromGallery = useCallback(async (files: File[]) => {
+    if (!workspace || !files.length) return
+    if (!loc) { setPickOpen(true); toast(t('capture.noloc')); return }
+    setImporting({ done: 0, total: files.length })
+    let added = 0, failed = 0
+    let last: QueuedShot | null = null
+    for (const [i, f] of files.entries()) {
+      try {
+        const shot = await squareFitFromFile(f)
+        const asAngle = Boolean(target)
+        const barcode = asAngle ? null : (i === 0 && presetBarcode) ? presetBarcode : await productBarcode(shot.bitmap)
+        shot.bitmap.close()
+        const queued = await enqueue({
+          ws: workspace.id, blob: shot.blob, thumb: shot.thumb, width: shot.width, height: shot.height,
+          location_id: loc, qty: asAngle ? 1 : qty, angle: asAngle ? 'side' : 'front', barcode,
+          item_id: target ? target.id : crypto.randomUUID(),
+        })
+        last = queued
+        added += 1
+        if (!asAngle) setCount(c => c + 1)
+        const url = URL.createObjectURL(shot.thumb)
+        urlsRef.current.push(url)
+        setRecent(r => [...r.slice(-5), { id: queued.id, url, pending: true }])
+      } catch { failed += 1 }
+      setImporting({ done: i + 1, total: files.length })
+    }
+    setImporting(null)
+    if (last) { setLastShot(last); setPresetBarcode(null); setQty(1); vibrate(30); play('capture'); setPop(true); setTimeout(() => setPop(false), 260) }
+    if (added) toast(added === 1 ? t('capture.gallery.one') : t('capture.gallery.added', { n: added }), 'ok')
+    if (failed) toast(t('capture.gallery.failed', { n: failed }), 'err', 6000)
+  }, [workspace, loc, qty, target, presetBarcode, t])
+
   // mark recents as uploaded when the queue drains
   useEffect(() => {
     if (q.pending === 0) setRecent(r => r.map(x => ({ ...x, pending: false })))
@@ -244,6 +282,10 @@ export function Capture() {
       </div>
 
       <div className="recent" ref={stripRef} aria-label={t('capture.recent')}>
+        <button type="button" className="gallery-btn" disabled={Boolean(importing)} onClick={() => galleryRef.current?.click()} aria-label={t('capture.gallery')} title={t('capture.gallery')}>
+          {importing ? <><Loader2 size={20} className="spin" /><span className="mono">{importing.done}/{importing.total}</span></> : <><Images size={22} /><span>{t('capture.gallery.short')}</span></>}
+        </button>
+        <input ref={galleryRef} type="file" accept="image/*" multiple hidden onChange={e => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; void fromGallery(fs) }} />
         {recent.length === 0 && <span className="recent-empty" aria-hidden="true" />}
         {recent.slice().reverse().map(r => (
           <span key={r.id} className="recent-slot">
