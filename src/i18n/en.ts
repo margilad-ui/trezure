@@ -426,4 +426,5 @@ export const en: Record<Key, string> = {
   'capture.gallery.added': '{n} photos added from the gallery, each as an item',
   'capture.gallery.failed': '{n} photos could not be opened. Maybe a format the browser does not read',
   'label.size.80x50': 'Place 80×50',
+  'box.pending.print': 'Print all {n} again',
 }

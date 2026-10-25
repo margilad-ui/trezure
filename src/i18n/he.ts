@@ -424,6 +424,7 @@ export const he = {
   'capture.gallery.added': '{n} תמונות נוספו מהגלריה, כל אחת כפריט',
   'capture.gallery.failed': '{n} תמונות לא נפתחו. אולי פורמט שהדפדפן לא מכיר',
   'label.size.80x50': 'מקום 80×50',
+  'box.pending.print': 'הדפס שוב את כל {n}',
 } as const
 
 export type Key = keyof typeof he

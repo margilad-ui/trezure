@@ -214,6 +214,7 @@ export function Locations({ id }: { id?: string }) {
         <div className="tz-card place-box" style={{ marginBlockEnd: 14 }}>
           <div className="oki-line"><Oki size={36} expression="ok" /><p>{pendingBoxes.length === 1 ? t('box.pending.one') : t('box.pending', { n: pendingBoxes.length })}</p></div>
           <div className="chips">{pendingBoxes.slice(0, 24).map(b => <a key={b.id} className="chip-btn mono" href={href(`/loc/${b.id}`)} onClick={onLink}>{b.code}</a>)}</div>
+          <button type="button" className="tz-btn quiet sm" style={{ justifySelf: 'start' }} onClick={() => setBatch({ jobs: pendingBoxes.slice().sort((a, b) => a.code.localeCompare(b.code)).map(jobFor), title: t('box.blank.title', { n: pendingBoxes.length }) })}><Printer size={15} /> {t('box.pending.print', { n: pendingBoxes.length })}</button>
         </div>
       )}
 
