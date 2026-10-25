@@ -12,7 +12,7 @@ export const DPI = 203
 export const mm = (v: number) => Math.round((v / 25.4) * DPI)
 
 export type LabelKind = 'item' | 'location'
-export type LabelSize = '50x30' | '30x50' | '70x50' | 'r31'
+export type LabelSize = '50x30' | '30x50' | '70x50' | '80x50' | 'r31'
 
 /**
  * Every template the app prints. w x h is the label as you read it; `rotate` says it goes through the
@@ -22,10 +22,11 @@ export const SIZES: Record<LabelSize, { w: number; h: number; rotate: boolean; r
   '50x30': { w: 50, h: 30, rotate: false, roll: '50×30' },
   '30x50': { w: 30, h: 50, rotate: true, roll: '50×30' },
   '70x50': { w: 70, h: 50, rotate: true, roll: '50×70' },
+  '80x50': { w: 80, h: 50, rotate: true, roll: '50×80' },
   'r31': { w: 31, h: 31, rotate: false, round: true, roll: 'עגול 31' },
 }
 export const SIZES_FOR: Record<LabelKind, LabelSize[]> = {
-  location: ['70x50', '50x30', '30x50', 'r31'],
+  location: ['70x50', '80x50', '50x30', '30x50', 'r31'],
   item: ['50x30', '30x50', 'r31'],
 }
 
@@ -120,7 +121,8 @@ function layoutName(
  * 30x50 is portrait (bar, name, QR, code), both straight from the approved round 2 geometry.
  */
 export async function drawLabel(kind: LabelKind, size: LabelSize, d: LabelData): Promise<HTMLCanvasElement> {
-  if (size === '70x50') return drawBig(d)
+  if (size === '70x50') return drawBig(d, 70)
+  if (size === '80x50') return drawBig(d, 80)
   if (size === 'r31') return drawRound(kind, d)
   const land = size === '50x30'
   const W = mm(land ? 50 : 30), H = mm(land ? 30 : 50)
@@ -217,12 +219,13 @@ function fitPx(x: CanvasRenderingContext2D, text: string, maxW: number, maxPx: n
 }
 
 /**
- * 70x50, for places: drawers, shelves, cabinets and boxes. Read from across the room. A black bar with the
+ * 70x50 and 80x50, for places: drawers, shelves, cabinets and boxes. Read from across the room. A black bar with the
  * wordmark and the kind of place, a big QR on the left, and on the right the code in large mono, the name,
  * and where it sits (left out for boxes, which move). A box without a name gets a line to write on.
  */
-async function drawBig(d: LabelData): Promise<HTMLCanvasElement> {
-  const W = mm(70), H = mm(50)
+async function drawBig(d: LabelData, wMm = 70): Promise<HTMLCanvasElement> {
+  // 80 wide gets the same bar and QR; the extra 10 mm go to the text column, so codes and names run larger
+  const W = mm(wMm), H = mm(50)
   const { c, x } = blank(W, H)
   const barH = mm(8), pad = mm(2.4)
   x.fillStyle = '#000'; x.fillRect(0, 0, W, barH)
@@ -248,7 +251,7 @@ async function drawBig(d: LabelData): Promise<HTMLCanvasElement> {
   const top = barH + mm(2.2)
   // the code, as large as the column allows
   x.direction = 'ltr'; x.textAlign = 'right'
-  const codePx = fitPx(x, d.code, textW, mm(8.5), mm(4.2), px => `700 ${px}px ${FONT_MONO}`)
+  const codePx = fitPx(x, d.code, textW, mm(wMm >= 80 ? 9.5 : 8.5), mm(4.2), px => `700 ${px}px ${FONT_MONO}`)
   const codeBase = top + codePx * 0.8
   x.fillText(d.code, right, codeBase)
   x.direction = 'rtl'
@@ -258,7 +261,7 @@ async function drawBig(d: LabelData): Promise<HTMLCanvasElement> {
   const name = d.name?.trim()
   if (name) {
     const room = bottom - nameTop
-    const block = layoutName(x, { ...d, name }, textW, room, mm(6.4), mm(3.4), mm(3.4))
+    const block = layoutName(x, { ...d, name }, textW, room, mm(wMm >= 80 ? 7 : 6.4), mm(3.4), mm(3.4))
     x.textAlign = 'right'
     x.font = `700 ${block.px}px ${FONT_HE}`
     block.lines.forEach((ln, i) => x.fillText(ln, right, nameTop + block.px * (0.82 + i * 1.05)))

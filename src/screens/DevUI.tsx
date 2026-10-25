@@ -50,6 +50,9 @@ function LabelDemo() {
       ['70x50', { name: 'מגירה 2', code: 'OF-D3-02', url: 'https://margilad-ui.github.io/trezure/l/OF-D3-02', parent: 'משרד · שידה 3', kindLabel: 'מגירה' }, 'location'],
       ['70x50', { name: 'חוטים, כבלים ומטענים', code: 'BX-0007', url: 'https://margilad-ui.github.io/trezure/l/BX-0007', kindLabel: 'קופסה' }, 'location'],
       ['70x50', { name: '', code: 'BX-0012', url: 'https://margilad-ui.github.io/trezure/l/BX-0012', kindLabel: 'קופסה', writeLine: true }, 'location'],
+      ['80x50', { name: 'חוטים, כבלים ומטענים', code: 'BX-0007', url: 'https://margilad-ui.github.io/trezure/l/BX-0007', kindLabel: 'קופסה' }, 'location'],
+      ['80x50', { name: 'מגירה 2', code: 'OF-D3-02', url: 'https://margilad-ui.github.io/trezure/l/OF-D3-02', parent: 'משרד · שידה 3', kindLabel: 'מגירה' }, 'location'],
+      ['80x50', { name: '', code: 'BX-0012', url: 'https://margilad-ui.github.io/trezure/l/BX-0012', kindLabel: 'קופסה', writeLine: true }, 'location'],
       ['r31', { name: 'דבק חם', code: 'OF-D3-02.AB12', url: 'https://margilad-ui.github.io/trezure/item/ab12cd34-0000-0000-0000-000000000000' }, 'item'],
       ['r31', { name: '', code: 'BX-0012', url: 'https://margilad-ui.github.io/trezure/l/BX-0012' }, 'location'],
     ]
